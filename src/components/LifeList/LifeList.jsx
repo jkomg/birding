@@ -48,28 +48,30 @@ export default function LifeList() {
       </div>
       {loading ? <div className="loading">Loading...</div> : (
         <div className="card" style={{ padding: 0 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Common Name</th>
-                <th>Scientific Name</th>
-                <th>First Seen</th>
-                <th>Sightings</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(s => (
-                <tr key={s.species_code || s.common_name}
-                  onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}
-                  style={{ cursor: 'pointer' }}>
-                  <td><strong>{s.common_name}</strong></td>
-                  <td style={{ fontStyle: 'italic', color: '#5a7a5a', fontSize: '0.85rem' }}>{s.scientific_name}</td>
-                  <td>{s.first_seen}</td>
-                  <td>{s.total_sightings}</td>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Common Name</th>
+                  <th>Scientific Name</th>
+                  <th>First Seen</th>
+                  <th>Sightings</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(s => (
+                  <tr key={s.species_code || s.common_name}
+                    onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}
+                    style={{ cursor: 'pointer' }}>
+                    <td><strong>{s.common_name}</strong></td>
+                    <td style={{ fontStyle: 'italic', color: '#5a7a5a', fontSize: '0.85rem' }}>{s.scientific_name}</td>
+                    <td>{s.first_seen}</td>
+                    <td>{s.total_sightings}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

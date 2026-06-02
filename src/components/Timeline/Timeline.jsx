@@ -29,9 +29,14 @@ export default function Timeline() {
 
   return (
     <div>
-      <div className="page-header"><h1>Timeline</h1></div>
+      <div className="page-header">
+        <div>
+          <h1>Timeline</h1>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Checklist-style outings, grouped by trip.</div>
+        </div>
+      </div>
       {outings.map(o => (
-        <div className="card" key={`${o.submission_id}-${o.username}`} style={{ cursor: 'pointer' }}>
+        <div className="card timeline-card" key={`${o.submission_id}-${o.username}`} style={{ cursor: 'pointer' }}>
           <div onClick={() => toggleOuting(o.submission_id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontWeight: 600 }}>{o.observed_date}{o.observed_time ? ` at ${o.observed_time}` : ''}</div>

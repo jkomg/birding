@@ -135,21 +135,23 @@ export default function SpeciesDetail() {
       {/* Sightings table */}
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '1rem 1.25rem 0.5rem', fontWeight: 600 }}>Sightings</div>
-        <table>
-          <thead>
-            <tr><th>Date</th><th>Who</th><th>Location</th><th>Count</th></tr>
-          </thead>
-          <tbody>
-            {sightings.map(s => (
-              <tr key={s.id}>
-                <td>{s.observed_date}</td>
-                <td>{s.display_name}</td>
-                <td>{s.location_name}</td>
-                <td>{s.count}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Who</th><th>Location</th><th>Count</th></tr>
+            </thead>
+            <tbody>
+              {sightings.map(s => (
+                <tr key={s.id}>
+                  <td>{s.observed_date}</td>
+                  <td>{s.display_name}</td>
+                  <td>{s.location_name}</td>
+                  <td>{s.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

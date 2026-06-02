@@ -56,24 +56,26 @@ export default function Dashboard() {
             No sightings yet. <span style={{ color: 'var(--green)', cursor: 'pointer' }} onClick={() => navigate('/import')}>Import your eBird CSV</span> to get started.
           </div>
         ) : (
-          <table>
-            <thead>
-              <tr><th>Date</th><th>Species</th><th>Location</th><th>Who</th></tr>
-            </thead>
-            <tbody>
-              {data.recent_sightings.map(s => (
-                <tr key={s.id} style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}>
-                  <td>{s.observed_date}</td>
-                  <td>{s.common_name}</td>
-                  <td>{s.location_name}</td>
-                  <td style={{ color: s.username === user?.username ? 'var(--green)' : 'var(--text-muted)' }}>
-                    {s.display_name}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Species</th><th>Location</th><th>Who</th></tr>
+              </thead>
+              <tbody>
+                {data.recent_sightings.map(s => (
+                  <tr key={s.id} style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}>
+                    <td>{s.observed_date}</td>
+                    <td>{s.common_name}</td>
+                    <td>{s.location_name}</td>
+                    <td style={{ color: s.username === user?.username ? 'var(--green)' : 'var(--text-muted)' }}>
+                      {s.display_name}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
