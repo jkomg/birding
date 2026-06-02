@@ -20,6 +20,7 @@ export default function TripsPage() {
   const [suggestions, setSuggestions] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [selectedPlanId, setSelectedPlanId] = useState(null)
+  const [suggestionTargetId, setSuggestionTargetId] = useState('')
   const [itinerary, setItinerary] = useState([])
   const [loadingPlans, setLoadingPlans] = useState(true)
   const [loadingSuggestions, setLoadingSuggestions] = useState(true)
@@ -27,6 +28,14 @@ export default function TripsPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const scopeLabel = getScopeLabel(filter, user, users)
+  const editablePlans = plans.filter(plan => plan.status !== 'done')
+  const currentPlan = plans.find(plan => plan.id === selectedPlanId) ?? null
+  const currentPlanLabel = currentPlan ? `${currentPlan.title} · ${currentPlan.status}` : 'New draft plan'
+
+  useEffect(() => {
+    const selectedIsEditable = selectedPlanId && plans.some(plan => plan.id === selectedPlanId && plan.status !== 'done')
+    setSuggestionTargetId(selectedIsEditable ? String(selectedPlanId) : '')
+  }, [plans, selectedPlanId])
 
   async function loadPlans() {
     setLoadingPlans(true)
@@ -90,6 +99,12 @@ export default function TripsPage() {
     setError('')
   }
 
+  function getNextItinerary(plan, suggestion) {
+    const currentItinerary = Array.isArray(plan?.itinerary) ? plan.itinerary : []
+    if (currentItinerary.some(item => item.loc_key === suggestion.loc_key)) return currentItinerary
+    return [...currentItinerary, suggestion]
+  }
+
   function addSuggestion(suggestion) {
     if (itineraryKeys.has(suggestion.loc_key)) return
     setItinerary(prev => [...prev, suggestion])
@@ -97,6 +112,56 @@ export default function TripsPage() {
 
   function removeSuggestion(locKey) {
     setItinerary(prev => prev.filter(item => item.loc_key !== locKey))
+  }
+
+  async function addSuggestionToPlan(suggestion) {
+    const targetId = suggestionTargetId
+
+    if (!targetId) {
+      addSuggestion(suggestion)
+      setMessage('Added to the current draft.')
+      return
+    }
+
+    const targetPlan = plans.find(plan => String(plan.id) === String(targetId))
+    if (!targetPlan) {
+      setError('Select a valid plan first.')
+      return
+    }
+
+    const nextItinerary = getNextItinerary({ itinerary: targetPlan.itinerary }, suggestion)
+    if (nextItinerary.length === (targetPlan.itinerary?.length ?? 0)) {
+      setMessage('That stop is already on this plan.')
+      return
+    }
+
+    if (selectedPlanId && String(selectedPlanId) === String(targetPlan.id)) {
+      setItinerary(nextItinerary)
+      setPlans(prev => prev.map(plan => (
+        String(plan.id) === String(targetPlan.id)
+          ? { ...plan, itinerary: nextItinerary }
+          : plan
+      )))
+      setMessage('Added to the current plan.')
+      return
+    }
+
+    const res = await fetch(`/api/trips/${targetPlan.id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itinerary: nextItinerary })
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      setError(data.error || 'Could not update plan stops')
+      return
+    }
+
+    setPlans(prev => prev.map(plan => (
+      String(plan.id) === String(targetPlan.id) ? data : plan
+    )))
+    setMessage(`Added stop to ${data.title}.`)
   }
 
   async function savePlan(e) {
@@ -155,9 +220,17 @@ export default function TripsPage() {
         <button className="secondary" onClick={resetForm}>New Plan</button>
       </div>
 
-      <div className="trip-grid">
-        <div className="card">
-          <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>{selectedPlanId ? 'Edit Plan' : 'Create Plan'}</h2>
+      <div className="trip-workspace">
+        <div className="card trip-current-card">
+          <div className="trip-card-header">
+            <div>
+              <div className="trip-section-kicker">Current plan</div>
+              <h2>{selectedPlanId ? 'Edit plan' : 'Create a new plan'}</h2>
+              <div className="trip-card-subtitle">{currentPlanLabel}</div>
+            </div>
+            <button className="secondary" onClick={resetForm}>New Plan</button>
+          </div>
+
           <form onSubmit={savePlan}>
             <div className="form-group">
               <label>Trip Title</label>
@@ -203,12 +276,13 @@ export default function TripsPage() {
             {message && <div style={{ color: 'var(--green)', marginBottom: '0.75rem', fontSize: '0.875rem' }}>{message}</div>}
             <button type="submit">{selectedPlanId ? 'Update Plan' : 'Save Plan'}</button>
           </form>
-          <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-            <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Chosen stops</div>
+
+          <div className="trip-stops-panel">
+            <div className="trip-panel-title">Chosen stops</div>
             {itinerary.length === 0 ? (
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Add suggested hotspots below to build your route.</div>
+              <div className="trip-panel-empty">Pick stops from the suggestions below to build this route.</div>
             ) : (
-              <div style={{ display: 'grid', gap: '0.5rem' }}>
+              <div className="trip-stop-list">
                 {itinerary.map(stop => (
                   <div key={stop.loc_key} className="trip-stop">
                     <div>
@@ -225,44 +299,39 @@ export default function TripsPage() {
           </div>
         </div>
 
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-end', marginBottom: '1rem' }}>
+        <div className="card trip-drafts-card">
+          <div className="trip-card-header">
             <div>
-              <h2 style={{ fontSize: '1rem' }}>Suggested Stops</h2>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                Ranked from {scopeLabel.toLowerCase()}; add stops to build a route.
-              </div>
+              <div className="trip-section-kicker">Draft plans</div>
+              <h2>Saved plans</h2>
+              <div className="trip-card-subtitle">Open one to make it the current plan.</div>
             </div>
-            <input
-              placeholder="Search species..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ maxWidth: 240 }}
-            />
           </div>
-          {loadingSuggestions ? (
+
+          {loadingPlans ? (
             <div className="loading">Loading...</div>
+          ) : plans.length === 0 ? (
+            <div className="trip-panel-empty">No day-trip plans yet.</div>
           ) : (
-            <div className="suggestion-list">
-              {suggestions.map(suggestion => (
-                <div key={suggestion.loc_key} className="suggestion-card">
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{suggestion.location_name}</div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                      {suggestion.state_province || 'Unknown state'} · {suggestion.species_count} species · {suggestion.visit_count} visits
+            <div className="trip-plan-list">
+              {plans.map(plan => (
+                <div key={plan.id} className={`trip-plan-card ${String(plan.id) === String(selectedPlanId) ? 'trip-plan-card-active' : ''}`}>
+                  <div className="trip-plan-card-main">
+                    <div className="trip-plan-title-row">
+                      <div className="trip-plan-title">{plan.title}</div>
+                      <span className={`trip-plan-badge trip-plan-badge-${plan.status}`}>{plan.status}</span>
                     </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                      Recent visit: {suggestion.last_visit}
+                    <div className="trip-plan-meta">
+                      {plan.trip_date}{plan.start_time ? ` · ${plan.start_time}` : ''}{plan.end_time ? ` to ${plan.end_time}` : ''}
                     </div>
+                    {plan.target_area && <div className="trip-plan-meta">{plan.target_area}</div>}
+                    {plan.target_species && <div className="trip-plan-meta">Target: {plan.target_species}</div>}
+                    <div className="trip-plan-meta">{Array.isArray(plan.itinerary) ? plan.itinerary.length : 0} stops</div>
                   </div>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => addSuggestion(suggestion)}
-                    disabled={itineraryKeys.has(suggestion.loc_key)}
-                  >
-                    {itineraryKeys.has(suggestion.loc_key) ? 'Added' : 'Add'}
-                  </button>
+                  <div className="trip-plan-card-actions">
+                    <button type="button" className="secondary" onClick={() => startEditing(plan)}>Current</button>
+                    <button type="button" className="secondary" onClick={() => deletePlan(plan.id)}>Delete</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -270,28 +339,57 @@ export default function TripsPage() {
         </div>
       </div>
 
-      <div className="card">
-        <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>Saved Plans</h2>
-        {loadingPlans ? (
+      <div className="card trip-suggestions-card">
+        <div className="trip-card-header">
+          <div>
+            <div className="trip-section-kicker">Suggested stops</div>
+            <h2>Ranked from {scopeLabel.toLowerCase()}</h2>
+            <div className="trip-card-subtitle">Choose a target plan, then add stops directly into it.</div>
+          </div>
+          <div className="trip-suggestion-target">
+            <label>Adding to</label>
+            <select value={suggestionTargetId} onChange={e => setSuggestionTargetId(e.target.value)}>
+              <option value="">Current draft</option>
+              {editablePlans.map(plan => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.title} · {plan.status}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="trip-suggestion-search">
+          <input
+            placeholder="Search species..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
+        {loadingSuggestions ? (
           <div className="loading">Loading...</div>
-        ) : plans.length === 0 ? (
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No day-trip plans yet.</div>
         ) : (
-          <div className="trip-plan-list">
-            {plans.map(plan => (
-              <div key={plan.id} className="trip-plan-card">
+          <div className="suggestion-list">
+            {suggestions.map(suggestion => (
+              <div key={suggestion.loc_key} className="suggestion-card">
                 <div>
-                  <div style={{ fontWeight: 700 }}>{plan.title}</div>
+                  <div style={{ fontWeight: 600 }}>{suggestion.location_name}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                    {plan.trip_date}{plan.start_time ? ` · ${plan.start_time}` : ''}{plan.end_time ? ` to ${plan.end_time}` : ''} · {plan.status}
+                    {suggestion.state_province || 'Unknown state'} · {suggestion.species_count} species · {suggestion.visit_count} visits
                   </div>
-                  {plan.target_area && <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{plan.target_area}</div>}
-                  {plan.target_species && <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Target: {plan.target_species}</div>}
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    Recent visit: {suggestion.last_visit}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="button" className="secondary" onClick={() => startEditing(plan)}>Edit</button>
-                  <button type="button" className="secondary" onClick={() => deletePlan(plan.id)}>Delete</button>
-                </div>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => addSuggestionToPlan(suggestion)}
+                  disabled={suggestionTargetId && !plans.some(plan => String(plan.id) === String(suggestionTargetId))}
+                >
+                  Add stop
+                </button>
               </div>
             ))}
           </div>

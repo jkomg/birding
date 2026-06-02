@@ -203,6 +203,73 @@ tr:hover td { background: var(--bg); }
 .stat-card .label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
 
 /* Trips */
+.trip-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.trip-current-card,
+.trip-drafts-card,
+.trip-suggestions-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.trip-current-card {
+  min-width: 0;
+}
+
+.trip-drafts-card {
+  min-width: 0;
+}
+
+.trip-suggestions-card {
+  margin-top: 1rem;
+}
+
+.trip-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.trip-section-kicker {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+.trip-card-subtitle {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-top: 0.2rem;
+}
+
+.trip-panel-title {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.trip-panel-empty {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.trip-stops-panel {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.trip-stop-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
 .trip-grid {
   display: grid;
   grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
@@ -237,6 +304,88 @@ tr:hover td { background: var(--bg); }
 
 .trip-stop {
   background: #fff;
+}
+
+.trip-plan-card {
+  align-items: flex-start;
+  background: #fff;
+}
+
+.trip-plan-card-active {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px rgba(45, 106, 79, 0.12);
+}
+
+.trip-plan-card-main {
+  min-width: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.trip-plan-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.trip-plan-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.trip-plan-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.trip-plan-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.trip-plan-badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.trip-plan-badge-planned {
+  background: rgba(82, 183, 136, 0.15);
+  color: var(--green-dark);
+}
+
+.trip-plan-badge-draft {
+  background: rgba(45, 106, 79, 0.1);
+  color: var(--green);
+}
+
+.trip-plan-badge-done {
+  background: rgba(192, 57, 43, 0.12);
+  color: var(--danger);
+}
+
+.trip-suggestion-target {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 240px;
+}
+
+.trip-suggestion-target label {
+  margin-bottom: 0;
+}
+
+.trip-suggestion-search {
+  max-width: 320px;
+}
+
+.trip-suggestion-search input {
+  width: 100%;
 }
 
 /* Map */
@@ -559,6 +708,19 @@ tr:hover td { background: var(--bg); }
     grid-template-columns: 1fr;
   }
 
+  .trip-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .trip-suggestion-target {
+    min-width: 0;
+  }
+
   .trip-stop,
   .suggestion-card,
   .trip-plan-card {
@@ -570,6 +732,15 @@ tr:hover td { background: var(--bg); }
   .suggestion-card button,
   .trip-plan-card button {
     width: 100%;
+  }
+
+  .trip-plan-card-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .trip-plan-card-actions button {
+    flex: 1 1 0;
   }
 
   .map-layout {
