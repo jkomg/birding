@@ -19,6 +19,7 @@ export default function TripsPage() {
   const [plans, setPlans] = useState([])
   const [suggestions, setSuggestions] = useState([])
   const [form, setForm] = useState(emptyForm)
+  const [customStopForm, setCustomStopForm] = useState({ name: '', area: '', notes: '' })
   const [selectedPlanId, setSelectedPlanId] = useState(null)
   const [suggestionTargetId, setSuggestionTargetId] = useState('')
   const [itinerary, setItinerary] = useState([])
@@ -77,6 +78,7 @@ export default function TripsPage() {
   function resetForm() {
     setSelectedPlanId(null)
     setForm(emptyForm)
+    setCustomStopForm({ name: '', area: '', notes: '' })
     setItinerary([])
     setMessage('')
     setError('')
@@ -110,29 +112,56 @@ export default function TripsPage() {
     setItinerary(prev => [...prev, suggestion])
   }
 
+  function createCustomStop() {
+    const name = customStopForm.name.trim()
+    if (!name) {
+      setError('Custom stop name is required.')
+      return null
+    }
+
+    return {
+      loc_key: `custom:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
+      location_name: name,
+      state_province: customStopForm.area.trim() || '',
+      notes: customStopForm.notes.trim() || '',
+      species_count: 0,
+      visit_count: 0,
+      last_visit: '',
+      custom: true
+    }
+  }
+
   function removeSuggestion(locKey) {
     setItinerary(prev => prev.filter(item => item.loc_key !== locKey))
   }
 
   async function addSuggestionToPlan(suggestion) {
+    await addStopToTarget(suggestion, 'Added stop.')
+  }
+
+  async function addStopToTarget(stop, successMessage) {
     const targetId = suggestionTargetId
 
     if (!targetId) {
-      addSuggestion(suggestion)
-      setMessage('Added to the current draft.')
-      return
+      if (itineraryKeys.has(stop.loc_key)) {
+        setMessage('That stop is already on this draft.')
+        return false
+      }
+      setItinerary(prev => [...prev, stop])
+      setMessage(successMessage || 'Added to the current draft.')
+      return true
     }
 
     const targetPlan = plans.find(plan => String(plan.id) === String(targetId))
     if (!targetPlan) {
       setError('Select a valid plan first.')
-      return
+      return false
     }
 
-    const nextItinerary = getNextItinerary({ itinerary: targetPlan.itinerary }, suggestion)
+    const nextItinerary = getNextItinerary({ itinerary: targetPlan.itinerary }, stop)
     if (nextItinerary.length === (targetPlan.itinerary?.length ?? 0)) {
       setMessage('That stop is already on this plan.')
-      return
+      return false
     }
 
     if (selectedPlanId && String(selectedPlanId) === String(targetPlan.id)) {
@@ -142,8 +171,8 @@ export default function TripsPage() {
           ? { ...plan, itinerary: nextItinerary }
           : plan
       )))
-      setMessage('Added to the current plan.')
-      return
+      setMessage(successMessage || 'Added to the current plan.')
+      return true
     }
 
     const res = await fetch(`/api/trips/${targetPlan.id}`, {
@@ -155,13 +184,24 @@ export default function TripsPage() {
     const data = await res.json()
     if (!res.ok) {
       setError(data.error || 'Could not update plan stops')
-      return
+      return false
     }
 
     setPlans(prev => prev.map(plan => (
       String(plan.id) === String(targetPlan.id) ? data : plan
     )))
     setMessage(`Added stop to ${data.title}.`)
+    return true
+  }
+
+  async function addCustomStop() {
+    setMessage('')
+    setError('')
+    const stop = createCustomStop()
+    if (!stop) return
+
+    const added = await addStopToTarget(stop, 'Added custom stop.')
+    if (added) setCustomStopForm({ name: '', area: '', notes: '' })
   }
 
   async function savePlan(e) {
@@ -286,9 +326,14 @@ export default function TripsPage() {
                 {itinerary.map(stop => (
                   <div key={stop.loc_key} className="trip-stop">
                     <div>
-                      <div style={{ fontWeight: 600 }}>{stop.location_name}</div>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: 600 }}>{stop.location_name}</div>
+                        {stop.custom && <span className="trip-plan-badge">Custom</span>}
+                      </div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {stop.species_count} species · {stop.visit_count} visits · last {stop.last_visit}
+                        {stop.custom
+                          ? [stop.state_province, stop.notes].filter(Boolean).join(' · ') || 'Custom stop'
+                          : `${stop.species_count} species · ${stop.visit_count} visits · last ${stop.last_visit}`}
                       </div>
                     </div>
                     <button className="secondary" onClick={() => removeSuggestion(stop.loc_key)} type="button">Remove</button>
@@ -296,6 +341,43 @@ export default function TripsPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="trip-stops-panel">
+            <div className="trip-panel-title">Add custom stop</div>
+            <div className="trip-custom-grid">
+              <div className="form-group">
+                <label>Stop name</label>
+                <input
+                  value={customStopForm.name}
+                  onChange={e => setCustomStopForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Trail, park, yard, lake..."
+                />
+              </div>
+              <div className="form-group">
+                <label>Area</label>
+                <input
+                  value={customStopForm.area}
+                  onChange={e => setCustomStopForm(prev => ({ ...prev, area: e.target.value }))}
+                  placeholder="Town, county, or state"
+                />
+              </div>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Notes</label>
+              <textarea
+                rows="3"
+                value={customStopForm.notes}
+                onChange={e => setCustomStopForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Parking, access, timing, backup plan..."
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                Added to the selected plan, or the current draft if none is selected.
+              </div>
+              <button type="button" onClick={addCustomStop}>Add custom stop</button>
+            </div>
           </div>
         </div>
 
