@@ -11,6 +11,7 @@ export default function BirdMap() {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const markersRef = useRef([])
+  const customMarkersRef = useRef([])
   const boundsRef = useRef(null)
   const refreshToken = useRef(0)
   const [speciesSearch, setSpeciesSearch] = useState('')
@@ -25,6 +26,15 @@ export default function BirdMap() {
     typeof window !== 'undefined' && window.matchMedia('(max-width: 780px)').matches
   ))
   const [mobileDrawer, setMobileDrawer] = useState(null)
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;')
+  }
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 780px)')
@@ -58,6 +68,7 @@ export default function BirdMap() {
         mapInstance.current.remove()
         mapInstance.current = null
         markersRef.current = []
+        customMarkersRef.current = []
         boundsRef.current = null
       }
     }
@@ -90,6 +101,8 @@ export default function BirdMap() {
 
         markersRef.current.forEach(marker => mapInstance.current.removeLayer(marker))
         markersRef.current = []
+        customMarkersRef.current.forEach(marker => mapInstance.current.removeLayer(marker))
+        customMarkersRef.current = []
 
         const features = geojson.features ?? []
         const maxCount = Math.max(1, ...features.map(feature => feature.properties.species_count ?? 1))
@@ -120,6 +133,49 @@ export default function BirdMap() {
           markersRef.current.push(marker)
           bounds.extend([lat, lng])
         })
+
+        try {
+          const tripsResponse = await fetch('/api/trips', { credentials: 'include' })
+          if (tripsResponse.ok) {
+            const tripPlans = await tripsResponse.json()
+            const customStops = (Array.isArray(tripPlans) ? tripPlans : [])
+              .flatMap(plan => (Array.isArray(plan.itinerary) ? plan.itinerary.map(stop => ({ ...stop, plan_title: plan.title })) : []))
+              .filter(stop => stop.custom && Number.isFinite(Number(stop.latitude)) && Number.isFinite(Number(stop.longitude)))
+
+            customStops.forEach(stop => {
+              const lat = Number(stop.latitude)
+              const lng = Number(stop.longitude)
+              const marker = window.L.circleMarker([lat, lng], {
+                radius: 7,
+                fillColor: '#d97706',
+                color: '#fff',
+                weight: 2,
+                fillOpacity: 0.95
+              })
+
+              marker.bindTooltip(`<strong>${stop.location_name}</strong><br/>Custom stop`, {
+                direction: 'top',
+                offset: [0, -8]
+              })
+
+              marker.bindPopup(`
+                <div style="min-width: 180px">
+                  <div style="font-weight: 700; margin-bottom: 0.25rem">${escapeHtml(stop.location_name)}</div>
+                  <div style="font-size: 0.8rem; color: #5a7a5a; margin-bottom: 0.35rem">${escapeHtml(stop.plan_title || 'Trip plan')}</div>
+                  <div style="font-size: 0.8rem; color: #5a7a5a">${escapeHtml(stop.state_province || '')}</div>
+                  ${stop.notes ? `<div style="font-size: 0.8rem; margin-top: 0.35rem">${escapeHtml(stop.notes)}</div>` : ''}
+                  <div style="font-size: 0.75rem; color: #5a7a5a; margin-top: 0.35rem">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+                </div>
+              `)
+
+              marker.addTo(mapInstance.current)
+              customMarkersRef.current.push(marker)
+              bounds.extend([lat, lng])
+            })
+          }
+        } catch {
+          // Optional pins; keep the core map working if trip loading fails.
+        }
 
         boundsRef.current = bounds.isValid() ? bounds : null
         if (boundsRef.current) {
@@ -300,6 +356,10 @@ export default function BirdMap() {
                   <span className="map-legend-dot map-legend-dot-shared" />
                   <span>Shared spot</span>
                 </div>
+                <div className="map-legend-row">
+                  <span className="map-legend-dot map-legend-dot-custom" />
+                  <span>Custom stop</span>
+                </div>
                 <div className="map-legend-note">Bigger circles mean more species recorded at that location.</div>
               </div>
             </div>
@@ -367,6 +427,10 @@ export default function BirdMap() {
           <div className="map-legend-row">
             <span className="map-legend-dot map-legend-dot-shared" />
             <span>Shared spot</span>
+          </div>
+          <div className="map-legend-row">
+            <span className="map-legend-dot map-legend-dot-custom" />
+            <span>Custom stop</span>
           </div>
           <div className="map-legend-note">Bigger circles mean more species recorded at that location.</div>
         </div>

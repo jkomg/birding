@@ -19,7 +19,7 @@ export default function TripsPage() {
   const [plans, setPlans] = useState([])
   const [suggestions, setSuggestions] = useState([])
   const [form, setForm] = useState(emptyForm)
-  const [customStopForm, setCustomStopForm] = useState({ name: '', area: '', notes: '' })
+  const [customStopForm, setCustomStopForm] = useState({ name: '', area: '', notes: '', latitude: '', longitude: '' })
   const [selectedPlanId, setSelectedPlanId] = useState(null)
   const [suggestionTargetId, setSuggestionTargetId] = useState('')
   const [itinerary, setItinerary] = useState([])
@@ -78,7 +78,7 @@ export default function TripsPage() {
   function resetForm() {
     setSelectedPlanId(null)
     setForm(emptyForm)
-    setCustomStopForm({ name: '', area: '', notes: '' })
+    setCustomStopForm({ name: '', area: '', notes: '', latitude: '', longitude: '' })
     setItinerary([])
     setMessage('')
     setError('')
@@ -119,11 +119,27 @@ export default function TripsPage() {
       return null
     }
 
+    const hasLat = customStopForm.latitude.trim() !== ''
+    const hasLng = customStopForm.longitude.trim() !== ''
+    if (hasLat !== hasLng) {
+      setError('Enter both latitude and longitude, or leave both blank.')
+      return null
+    }
+
+    const latitude = hasLat ? Number(customStopForm.latitude) : null
+    const longitude = hasLng ? Number(customStopForm.longitude) : null
+    if ((latitude !== null && !Number.isFinite(latitude)) || (longitude !== null && !Number.isFinite(longitude))) {
+      setError('Latitude and longitude must be valid numbers.')
+      return null
+    }
+
     return {
       loc_key: `custom:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`,
       location_name: name,
       state_province: customStopForm.area.trim() || '',
       notes: customStopForm.notes.trim() || '',
+      latitude,
+      longitude,
       species_count: 0,
       visit_count: 0,
       last_visit: '',
@@ -335,6 +351,11 @@ export default function TripsPage() {
                           ? [stop.state_province, stop.notes].filter(Boolean).join(' · ') || 'Custom stop'
                           : `${stop.species_count} species · ${stop.visit_count} visits · last ${stop.last_visit}`}
                       </div>
+                      {stop.custom && stop.latitude != null && stop.longitude != null && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Pin: {Number(stop.latitude).toFixed(4)}, {Number(stop.longitude).toFixed(4)}
+                        </div>
+                      )}
                     </div>
                     <button className="secondary" onClick={() => removeSuggestion(stop.loc_key)} type="button">Remove</button>
                   </div>
@@ -362,6 +383,28 @@ export default function TripsPage() {
                   placeholder="Town, county, or state"
                 />
               </div>
+              <div className="form-group">
+                <label>Latitude</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={customStopForm.latitude}
+                  onChange={e => setCustomStopForm(prev => ({ ...prev, latitude: e.target.value }))}
+                  placeholder="38.1234"
+                />
+              </div>
+              <div className="form-group">
+                <label>Longitude</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={customStopForm.longitude}
+                  onChange={e => setCustomStopForm(prev => ({ ...prev, longitude: e.target.value }))}
+                  placeholder="-77.1234"
+                />
+              </div>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label>Notes</label>
@@ -374,7 +417,7 @@ export default function TripsPage() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', marginTop: '0.75rem', flexWrap: 'wrap' }}>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                Added to the selected plan, or the current draft if none is selected.
+                Added to the selected plan, or the current draft if none is selected. Coordinates are optional.
               </div>
               <button type="button" onClick={addCustomStop}>Add custom stop</button>
             </div>

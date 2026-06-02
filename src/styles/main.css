@@ -463,6 +463,7 @@ tr:hover td { background: var(--bg); }
 
 .map-legend-dot-solo { background: var(--green-dark); }
 .map-legend-dot-shared { background: var(--green-light); }
+.map-legend-dot-custom { background: #d97706; }
 .map-legend-note { font-size: 0.8rem; color: var(--text-muted); }
 
 .map-section-title {
