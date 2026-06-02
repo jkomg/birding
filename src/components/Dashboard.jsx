@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth, useUserFilter } from '../App.jsx'
+import { useAuth, useUsers, useUserFilter, getScopeLabel } from '../App.jsx'
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const users = useUsers()
   const { filter } = useUserFilter()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
@@ -18,10 +19,18 @@ export default function Dashboard() {
 
   const me = data.per_user.find(u => u.username === user?.username)
   const other = data.per_user.find(u => u.username !== user?.username)
+  const scopeLabel = getScopeLabel(filter, user, users)
 
   return (
     <div>
-      <div className="page-header"><h1>Dashboard</h1></div>
+      <div className="page-header">
+        <div>
+          <h1>Dashboard</h1>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+            Viewing {scopeLabel.toLowerCase()}.
+          </div>
+        </div>
+      </div>
 
       <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
         <div className="stat-card" style={{ borderColor: 'var(--green)', borderWidth: 2 }}>

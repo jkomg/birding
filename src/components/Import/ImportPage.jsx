@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 export default function ImportPage() {
   const [file, setFile] = useState(null)
@@ -31,7 +32,7 @@ export default function ImportPage() {
       <div className="page-header"><h1>Import eBird CSV</h1></div>
       <div className="card">
         <p style={{ marginBottom: '1rem', color: '#5a7a5a', fontSize: '0.875rem' }}>
-          Export your data from eBird: My eBird → Download My Data. Upload the CSV file below.
+          This is the one-time historical seed. Export from eBird: My eBird → Download My Data, upload the CSV once, then use Settings for automatic sync going forward.
         </p>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -48,6 +49,9 @@ export default function ImportPage() {
             <strong>Done!</strong> {result.added} sightings added, {result.skipped} skipped (already existed).
           </div>
         )}
+        <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+          Need to wire up the API side next? Go to <Link to="/settings">Settings</Link> to add your eBird key, display name, and home regions.
+        </div>
       </div>
     </div>
   )

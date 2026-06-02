@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useUserFilter } from '../../App.jsx'
+import { useAuth, useUsers, useUserFilter, getScopeLabel } from '../../App.jsx'
 
 const emptyForm = {
   title: '',
@@ -13,6 +13,8 @@ const emptyForm = {
 }
 
 export default function TripsPage() {
+  const { user } = useAuth()
+  const users = useUsers()
   const { filter } = useUserFilter()
   const [plans, setPlans] = useState([])
   const [suggestions, setSuggestions] = useState([])
@@ -24,6 +26,7 @@ export default function TripsPage() {
   const [search, setSearch] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const scopeLabel = getScopeLabel(filter, user, users)
 
   async function loadPlans() {
     setLoadingPlans(true)
@@ -146,7 +149,7 @@ export default function TripsPage() {
         <div>
           <h1>Day Trips</h1>
           <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            Build a day-trip from your own sightings and save it as a reusable plan.
+            Build a day-trip from {scopeLabel.toLowerCase()} and save it as a reusable plan.
           </div>
         </div>
         <button className="secondary" onClick={resetForm}>New Plan</button>
@@ -227,7 +230,7 @@ export default function TripsPage() {
             <div>
               <h2 style={{ fontSize: '1rem' }}>Suggested Stops</h2>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                Ranked from your existing sightings in {filter === 'both' ? 'combined data' : filter}.
+                Ranked from {scopeLabel.toLowerCase()}; add stops to build a route.
               </div>
             </div>
             <input

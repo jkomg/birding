@@ -75,6 +75,17 @@ export default function SettingsPage() {
           Once your API key, display name, and home regions are set, the app checks eBird every 6 hours and imports new checklists automatically.
         </div>
         <div style={{ display: 'grid', gap: '0.5rem', marginBottom: '1rem' }}>
+          <div style={{ padding: '0.65rem 0.75rem', borderRadius: '8px', background: 'var(--bg)', fontSize: '0.875rem' }}>
+            1. Add your eBird API key so the app can poll your regions.
+          </div>
+          <div style={{ padding: '0.65rem 0.75rem', borderRadius: '8px', background: 'var(--bg)', fontSize: '0.875rem' }}>
+            2. Match your eBird display name exactly so the sync can find your checklist author name.
+          </div>
+          <div style={{ padding: '0.65rem 0.75rem', borderRadius: '8px', background: 'var(--bg)', fontSize: '0.875rem' }}>
+            3. Add one or more home regions, then use Sync Now once to confirm it works.
+          </div>
+        </div>
+        <div style={{ display: 'grid', gap: '0.5rem', marginBottom: '1rem' }}>
           {[
             { label: 'API key configured', ok: Boolean(user?.has_ebird_api_key) },
             { label: 'eBird display name matches', ok: Boolean(user?.ebird_display_name) },

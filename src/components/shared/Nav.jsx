@@ -1,21 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { useAuth, useUserFilter } from '../../App.jsx'
+import { useAuth, useUsers, useUserFilter, getScopeLabel } from '../../App.jsx'
 
 export default function Nav() {
   const { user, setUser } = useAuth()
+  const users = useUsers()
   const { filter, setFilter } = useUserFilter()
   const navigate = useNavigate()
-  const [allUsers, setAllUsers] = useState([])
-
-  useEffect(() => {
-    if (user) {
-      fetch('/api/users', { credentials: 'include' })
-        .then(r => r.json())
-        .then(setAllUsers)
-        .catch(() => {})
-    }
-  }, [user])
 
   async function logout() {
     await fetch('/api/logout', { method: 'POST', credentials: 'include' })
@@ -23,13 +13,11 @@ export default function Nav() {
     navigate('/login')
   }
 
-  // Build toggle: [me] [both] [other]
-  const me = allUsers.find(u2 => u2.username === user?.username)
-  const others = allUsers.filter(u2 => u2.username !== user?.username)
+  const scopeLabel = getScopeLabel(filter, user, users)
 
   return (
     <nav>
-      <span className="logo">🐦 Birds</span>
+      <span className="logo">Bird Tracker</span>
       <NavLink to="/">Home</NavLink>
       <NavLink to="/map">Map</NavLink>
       <NavLink to="/lifelist">Life List</NavLink>
@@ -38,16 +26,12 @@ export default function Nav() {
       <NavLink to="/import">Import</NavLink>
       <NavLink to="/settings">Settings</NavLink>
       <div className="user-toggle">
-        {me && (
-          <button className={filter === me.username ? 'active' : ''} onClick={() => setFilter(me.username)}>
-            Me
-          </button>
-        )}
-        <button className={filter === 'both' ? 'active' : ''} onClick={() => setFilter('both')}>
-          Both
+        <div className="user-toggle-label">{scopeLabel}</div>
+        <button className={filter === 'both' ? 'active' : ''} onClick={() => setFilter('both')} aria-pressed={filter === 'both'}>
+          All
         </button>
-        {others.map(u2 => (
-          <button key={u2.username} className={filter === u2.username ? 'active' : ''} onClick={() => setFilter(u2.username)}>
+        {users.map(u2 => (
+          <button key={u2.username} className={filter === u2.username ? 'active' : ''} onClick={() => setFilter(u2.username)} aria-pressed={filter === u2.username}>
             {u2.display_name}
           </button>
         ))}
