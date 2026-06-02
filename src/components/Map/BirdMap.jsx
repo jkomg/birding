@@ -21,6 +21,22 @@ export default function BirdMap() {
   const [panel, setPanel] = useState(null)
   const [panelLoading, setPanelLoading] = useState(false)
   const [panelError, setPanelError] = useState('')
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileDrawer, setMobileDrawer] = useState(null)
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 780px)')
+    const update = () => setIsMobile(media.matches)
+    update()
+
+    if (media.addEventListener) {
+      media.addEventListener('change', update)
+      return () => media.removeEventListener('change', update)
+    }
+
+    media.addListener(update)
+    return () => media.removeListener(update)
+  }, [])
 
   useEffect(() => {
     if (!window.L) return
@@ -124,6 +140,7 @@ export default function BirdMap() {
       if (!res.ok) throw new Error('Could not load species for this location')
       const species = await res.json()
       setPanel({ location_name: location.location_name, loc_key: location.loc_key, species })
+      setMobileDrawer(null)
     } catch (err) {
       setPanelError(err.message || 'Could not load location details')
     } finally {
@@ -142,6 +159,160 @@ export default function BirdMap() {
     if (mapInstance.current && boundsRef.current) {
       mapInstance.current.fitBounds(boundsRef.current.pad(0.15))
     }
+  }
+
+  const hotspotList = (
+    <div className="map-hotspot-list">
+      {hotspots.map(location => (
+        <button
+          key={location.loc_key}
+          type="button"
+          className="map-hotspot"
+          onClick={() => focusHotspot(location)}
+        >
+          <div>
+            <div className="map-hotspot-title">{location.location_name}</div>
+            <div className="map-hotspot-meta">
+              {location.species_count} species · {location.visit_count} visits
+            </div>
+          </div>
+          <div className="map-hotspot-action">Open</div>
+        </button>
+      ))}
+    </div>
+  )
+
+  const panelView = panel && (
+    <aside className={isMobile ? 'card map-panel map-panel-mobile' : 'card map-panel'}>
+      <div className="map-panel-header">
+        <div>
+          <div className="map-panel-title">{panel.location_name}</div>
+          {!panelLoading && !panelError && <div className="map-panel-meta">{panel.species.length} species</div>}
+        </div>
+        <button className="secondary" onClick={() => setPanel(null)} type="button">Close</button>
+      </div>
+      <div className="map-panel-body">
+        {panelLoading ? (
+          <div className="loading">Loading...</div>
+        ) : panelError ? (
+          <div className="error">{panelError}</div>
+        ) : panel.species.length === 0 ? (
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No species loaded for this location.</div>
+        ) : panel.species.map(s => (
+          <button
+            key={s.species_code || s.common_name}
+            type="button"
+            onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}
+            className="map-species-row"
+          >
+            <div>
+              <div className="map-species-name">{s.common_name}</div>
+              <div className="map-species-meta">{s.scientific_name}</div>
+              <div className="map-species-meta">{s.observers} · {s.last_seen}</div>
+            </div>
+            {s.times_seen > 1 && <div className="map-species-count">×{s.times_seen}</div>}
+          </button>
+        ))}
+      </div>
+    </aside>
+  )
+
+  if (isMobile) {
+    return (
+      <div className="map-mobile-shell">
+        <div className="map-mobile-topbar">
+          <div>
+            <div className="map-scope-pill">{scopeLabel}</div>
+            <h1 style={{ fontSize: '1.35rem', marginTop: '0.35rem' }}>Map</h1>
+          </div>
+          <button className="secondary" type="button" onClick={fitToMarkers} disabled={!boundsRef.current}>
+            Fit
+          </button>
+        </div>
+
+        <div className="map-mobile-actions">
+          <button type="button" className="secondary" onClick={() => setMobileDrawer(mobileDrawer === 'filters' ? null : 'filters')}>
+            Filters
+          </button>
+          <button type="button" className="secondary" onClick={() => setMobileDrawer(mobileDrawer === 'hotspots' ? null : 'hotspots')}>
+            Hotspots ({hotspots.length})
+          </button>
+          <button type="button" className="secondary" onClick={fitToMarkers} disabled={!boundsRef.current}>
+            Recenter
+          </button>
+        </div>
+
+        {mapError && <div className="error" style={{ marginBottom: '0.75rem' }}>{mapError}</div>}
+
+        <div id="bird-map" ref={mapRef} className="map-canvas map-canvas-mobile" />
+
+        <div className="map-mobile-hint">
+          Tap a hotspot or marker to open the species sheet.
+        </div>
+
+        {mobileDrawer === 'filters' && (
+          <div className="map-mobile-sheet">
+            <div className="map-panel-header">
+              <div>
+                <div className="map-panel-title">Map Filters</div>
+                <div className="map-panel-meta">Search and legend</div>
+              </div>
+              <button className="secondary" onClick={() => setMobileDrawer(null)} type="button">Close</button>
+            </div>
+            <div className="map-panel-body">
+              <div className="form-group">
+                <label>Search species</label>
+                <input
+                  placeholder="Filter map and hotspots..."
+                  value={speciesSearch}
+                  onChange={e => setSpeciesSearch(e.target.value)}
+                />
+              </div>
+              <div className="map-sidebar-actions">
+                <button type="button" className="secondary" onClick={fitToMarkers} disabled={!boundsRef.current}>
+                  Fit map
+                </button>
+                <button type="button" className="secondary" onClick={() => setSpeciesSearch('')} disabled={!speciesSearch}>
+                  Clear search
+                </button>
+              </div>
+              <div className="map-legend">
+                <div className="map-legend-row">
+                  <span className="map-legend-dot map-legend-dot-solo" />
+                  <span>Single observer</span>
+                </div>
+                <div className="map-legend-row">
+                  <span className="map-legend-dot map-legend-dot-shared" />
+                  <span>Shared spot</span>
+                </div>
+                <div className="map-legend-note">Bigger circles mean more species recorded at that location.</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {mobileDrawer === 'hotspots' && (
+          <div className="map-mobile-sheet">
+            <div className="map-panel-header">
+              <div>
+                <div className="map-panel-title">Top Hotspots</div>
+                <div className="map-panel-meta">{hotspots.length} locations</div>
+              </div>
+              <button className="secondary" onClick={() => setMobileDrawer(null)} type="button">Close</button>
+            </div>
+            <div className="map-panel-body">
+              {hotspotsLoading ? (
+                <div className="loading">Loading...</div>
+              ) : hotspots.length === 0 ? (
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No hotspots match this search yet.</div>
+              ) : hotspotList}
+            </div>
+          </div>
+        )}
+
+        {panelView}
+      </div>
+    )
   }
 
   return (
@@ -196,26 +367,7 @@ export default function BirdMap() {
             <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
               No hotspots match this search yet.
             </div>
-          ) : (
-            <div className="map-hotspot-list">
-              {hotspots.map(location => (
-                <button
-                  key={location.loc_key}
-                  type="button"
-                  className="map-hotspot"
-                  onClick={() => focusHotspot(location)}
-                >
-                  <div>
-                    <div className="map-hotspot-title">{location.location_name}</div>
-                    <div className="map-hotspot-meta">
-                      {location.species_count} species · {location.visit_count} visits
-                    </div>
-                  </div>
-                  <div className="map-hotspot-action">Open</div>
-                </button>
-              ))}
-            </div>
-          )}
+          ) : hotspotList}
         </div>
       </aside>
 
@@ -242,40 +394,7 @@ export default function BirdMap() {
         <div id="bird-map" ref={mapRef} className="map-canvas" />
       </section>
 
-      {panel && (
-        <aside className="card map-panel">
-          <div className="map-panel-header">
-            <div>
-              <div className="map-panel-title">{panel.location_name}</div>
-              {!panelLoading && !panelError && <div className="map-panel-meta">{panel.species.length} species</div>}
-            </div>
-            <button className="secondary" onClick={() => setPanel(null)} type="button">Close</button>
-          </div>
-          <div className="map-panel-body">
-            {panelLoading ? (
-              <div className="loading">Loading...</div>
-            ) : panelError ? (
-              <div className="error">{panelError}</div>
-            ) : panel.species.length === 0 ? (
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No species loaded for this location.</div>
-            ) : panel.species.map(s => (
-              <button
-                key={s.species_code || s.common_name}
-                type="button"
-                onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}
-                className="map-species-row"
-              >
-                <div>
-                  <div className="map-species-name">{s.common_name}</div>
-                  <div className="map-species-meta">{s.scientific_name}</div>
-                  <div className="map-species-meta">{s.observers} · {s.last_seen}</div>
-                </div>
-                {s.times_seen > 1 && <div className="map-species-count">×{s.times_seen}</div>}
-              </button>
-            ))}
-          </div>
-        </aside>
-      )}
+      {panelView}
     </div>
   )
 }
