@@ -135,7 +135,7 @@ export default function SpeciesDetail() {
       {/* Sightings table */}
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '1rem 1.25rem 0.5rem', fontWeight: 600 }}>Sightings</div>
-        <div className="table-wrap">
+        <div className="table-wrap mobile-hide">
           <table>
             <thead>
               <tr><th>Date</th><th>Who</th><th>Location</th><th>Count</th></tr>
@@ -151,6 +151,23 @@ export default function SpeciesDetail() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="mobile-card-list mobile-show" style={{ padding: '0 1rem 1rem' }}>
+          {sightings.map(s => (
+            <div key={s.id} className="mobile-card">
+              <div className="mobile-card-title-row">
+                <div>
+                  <div className="mobile-card-title">{s.display_name}</div>
+                  <div className="mobile-card-sub">{s.location_name}</div>
+                </div>
+                <div className="mobile-card-meta">{s.observed_date}</div>
+              </div>
+              <div className="mobile-card-foot">
+                <span>Count</span>
+                <strong>{s.count}</strong>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

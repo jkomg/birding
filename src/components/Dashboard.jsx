@@ -56,7 +56,8 @@ export default function Dashboard() {
             No sightings yet. <span style={{ color: 'var(--green)', cursor: 'pointer' }} onClick={() => navigate('/import')}>Import your eBird CSV</span> to get started.
           </div>
         ) : (
-          <div className="table-wrap">
+          <>
+            <div className="table-wrap mobile-hide">
             <table>
               <thead>
                 <tr><th>Date</th><th>Species</th><th>Location</th><th>Who</th></tr>
@@ -75,7 +76,32 @@ export default function Dashboard() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+            <div className="mobile-card-list mobile-show">
+              {data.recent_sightings.map(s => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className="mobile-card"
+                  onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}
+                >
+                  <div className="mobile-card-title-row">
+                    <div>
+                      <div className="mobile-card-title">{s.common_name}</div>
+                      <div className="mobile-card-sub">{s.location_name}</div>
+                    </div>
+                    <div className="mobile-card-meta">{s.observed_date}</div>
+                  </div>
+                  <div className="mobile-card-foot">
+                    <span>{s.display_name}</span>
+                    <span style={{ color: s.username === user?.username ? 'var(--green)' : 'var(--text-muted)' }}>
+                      {s.username === user?.username ? 'You' : s.display_name}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

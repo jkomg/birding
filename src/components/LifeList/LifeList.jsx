@@ -48,7 +48,7 @@ export default function LifeList() {
       </div>
       {loading ? <div className="loading">Loading...</div> : (
         <div className="card" style={{ padding: 0 }}>
-          <div className="table-wrap">
+          <div className="table-wrap mobile-hide">
             <table>
               <thead>
                 <tr>
@@ -71,6 +71,28 @@ export default function LifeList() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="mobile-card-list mobile-show">
+            {filtered.map(s => (
+              <button
+                key={s.species_code || s.common_name}
+                type="button"
+                className="mobile-card"
+                onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}
+              >
+                <div className="mobile-card-title-row">
+                  <div>
+                    <div className="mobile-card-title">{s.common_name}</div>
+                    <div className="mobile-card-sub">{s.scientific_name}</div>
+                  </div>
+                  <div className="mobile-card-meta">{s.first_seen}</div>
+                </div>
+                <div className="mobile-card-foot">
+                  <span>Sightings</span>
+                  <strong>{s.total_sightings}</strong>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       )}
