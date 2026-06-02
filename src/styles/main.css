@@ -571,6 +571,31 @@ tr:hover td { background: var(--bg); }
   gap: 0.5rem;
 }
 
+.map-panel-actions {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  margin-bottom: 0.25rem;
+}
+
+.map-panel-action-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.map-panel-action-row button {
+  flex: 1 1 0;
+}
+
+.map-panel-message {
+  font-size: 0.82rem;
+  color: var(--green);
+}
+
 .map-mobile-shell {
   display: grid;
   gap: 0.75rem;
@@ -839,6 +864,14 @@ tr:hover td { background: var(--bg); }
     background: var(--card);
     z-index: 1;
     padding-bottom: 0.75rem;
+  }
+
+  .map-panel-action-row {
+    flex-direction: column;
+  }
+
+  .map-panel-action-row button {
+    width: 100%;
   }
 
   .timeline-card > div:first-child {

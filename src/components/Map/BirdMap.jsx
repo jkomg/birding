@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, useUsers, useUserFilter, getScopeLabel } from '../../App.jsx'
 
@@ -22,10 +22,19 @@ export default function BirdMap() {
   const [panel, setPanel] = useState(null)
   const [panelLoading, setPanelLoading] = useState(false)
   const [panelError, setPanelError] = useState('')
+  const [panelMessage, setPanelMessage] = useState('')
+  const [trips, setTrips] = useState([])
+  const [tripsLoading, setTripsLoading] = useState(true)
+  const [tripTargetId, setTripTargetId] = useState('')
   const [isMobile, setIsMobile] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 780px)').matches
   ))
   const [mobileDrawer, setMobileDrawer] = useState(null)
+
+  const editableTrips = useMemo(
+    () => trips.filter(plan => plan.status !== 'done'),
+    [trips]
+  )
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -73,6 +82,43 @@ export default function BirdMap() {
       }
     }
   }, [isMobile])
+
+  useEffect(() => {
+    let isCurrent = true
+
+    async function loadTrips() {
+      setTripsLoading(true)
+      try {
+        const response = await fetch('/api/trips', { credentials: 'include' })
+        if (!response.ok) return
+        const tripPlans = await response.json()
+        if (!isCurrent) return
+        setTrips(Array.isArray(tripPlans) ? tripPlans : [])
+      } catch {
+        if (!isCurrent) return
+        setTrips([])
+      } finally {
+        if (isCurrent) setTripsLoading(false)
+      }
+    }
+
+    loadTrips()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [])
+
+  useEffect(() => {
+    setTripTargetId(prev => {
+      if (prev && editableTrips.some(plan => String(plan.id) === String(prev))) {
+        return prev
+      }
+
+      const fallback = editableTrips[0] || trips[0] || null
+      return fallback ? String(fallback.id) : ''
+    })
+  }, [editableTrips, trips])
 
   useEffect(() => {
     if (!mapInstance.current || !window.L) return
@@ -135,44 +181,40 @@ export default function BirdMap() {
         })
 
         try {
-          const tripsResponse = await fetch('/api/trips', { credentials: 'include' })
-          if (tripsResponse.ok) {
-            const tripPlans = await tripsResponse.json()
-            const customStops = (Array.isArray(tripPlans) ? tripPlans : [])
-              .flatMap(plan => (Array.isArray(plan.itinerary) ? plan.itinerary.map(stop => ({ ...stop, plan_title: plan.title })) : []))
-              .filter(stop => stop.custom && Number.isFinite(Number(stop.latitude)) && Number.isFinite(Number(stop.longitude)))
+          const customStops = editableTrips
+            .flatMap(plan => (Array.isArray(plan.itinerary) ? plan.itinerary.map(stop => ({ ...stop, plan_title: plan.title })) : []))
+            .filter(stop => stop.custom && Number.isFinite(Number(stop.latitude)) && Number.isFinite(Number(stop.longitude)))
 
-            customStops.forEach(stop => {
-              const lat = Number(stop.latitude)
-              const lng = Number(stop.longitude)
-              const marker = window.L.circleMarker([lat, lng], {
-                radius: 7,
-                fillColor: '#d97706',
-                color: '#fff',
-                weight: 2,
-                fillOpacity: 0.95
-              })
-
-              marker.bindTooltip(`<strong>${stop.location_name}</strong><br/>Custom stop`, {
-                direction: 'top',
-                offset: [0, -8]
-              })
-
-              marker.bindPopup(`
-                <div style="min-width: 180px">
-                  <div style="font-weight: 700; margin-bottom: 0.25rem">${escapeHtml(stop.location_name)}</div>
-                  <div style="font-size: 0.8rem; color: #5a7a5a; margin-bottom: 0.35rem">${escapeHtml(stop.plan_title || 'Trip plan')}</div>
-                  <div style="font-size: 0.8rem; color: #5a7a5a">${escapeHtml(stop.state_province || '')}</div>
-                  ${stop.notes ? `<div style="font-size: 0.8rem; margin-top: 0.35rem">${escapeHtml(stop.notes)}</div>` : ''}
-                  <div style="font-size: 0.75rem; color: #5a7a5a; margin-top: 0.35rem">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
-                </div>
-              `)
-
-              marker.addTo(mapInstance.current)
-              customMarkersRef.current.push(marker)
-              bounds.extend([lat, lng])
+          customStops.forEach(stop => {
+            const lat = Number(stop.latitude)
+            const lng = Number(stop.longitude)
+            const marker = window.L.circleMarker([lat, lng], {
+              radius: 7,
+              fillColor: '#d97706',
+              color: '#fff',
+              weight: 2,
+              fillOpacity: 0.95
             })
-          }
+
+            marker.bindTooltip(`<strong>${stop.location_name}</strong><br/>Custom stop`, {
+              direction: 'top',
+              offset: [0, -8]
+            })
+
+            marker.bindPopup(`
+              <div style="min-width: 180px">
+                <div style="font-weight: 700; margin-bottom: 0.25rem">${escapeHtml(stop.location_name)}</div>
+                <div style="font-size: 0.8rem; color: #5a7a5a; margin-bottom: 0.35rem">${escapeHtml(stop.plan_title || 'Trip plan')}</div>
+                <div style="font-size: 0.8rem; color: #5a7a5a">${escapeHtml(stop.state_province || '')}</div>
+                ${stop.notes ? `<div style="font-size: 0.8rem; margin-top: 0.35rem">${escapeHtml(stop.notes)}</div>` : ''}
+                <div style="font-size: 0.75rem; color: #5a7a5a; margin-top: 0.35rem">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+              </div>
+            `)
+
+            marker.addTo(mapInstance.current)
+            customMarkersRef.current.push(marker)
+            bounds.extend([lat, lng])
+          })
         } catch {
           // Optional pins; keep the core map working if trip loading fails.
         }
@@ -196,12 +238,20 @@ export default function BirdMap() {
     }
 
     refresh()
-  }, [filter, speciesSearch, isMobile])
+  }, [filter, speciesSearch, isMobile, editableTrips])
 
   async function openPanel(location) {
-    setPanel({ location_name: location.location_name, loc_key: location.loc_key, species: [] })
+    setPanel({
+      location_name: location.location_name,
+      loc_key: location.loc_key,
+      latitude: location.latitude ?? null,
+      longitude: location.longitude ?? null,
+      state_province: location.state_province ?? '',
+      species: []
+    })
     setPanelLoading(true)
     setPanelError('')
+    setPanelMessage('')
 
     const params = new URLSearchParams({ user: filter })
     if (speciesSearch.trim()) params.set('species', speciesSearch.trim())
@@ -210,7 +260,15 @@ export default function BirdMap() {
       const res = await fetch(`/api/map/location/${encodeURIComponent(location.loc_key)}?${params}`, { credentials: 'include' })
       if (!res.ok) throw new Error('Could not load species for this location')
       const species = await res.json()
-      setPanel({ location_name: location.location_name, loc_key: location.loc_key, species })
+      setPanel(prev => ({
+        ...(prev || {}),
+        location_name: location.location_name,
+        loc_key: location.loc_key,
+        latitude: location.latitude ?? prev?.latitude ?? null,
+        longitude: location.longitude ?? prev?.longitude ?? null,
+        state_province: location.state_province ?? prev?.state_province ?? '',
+        species
+      }))
       setMobileDrawer(null)
     } catch (err) {
       setPanelError(err.message || 'Could not load location details')
@@ -230,6 +288,63 @@ export default function BirdMap() {
     if (mapInstance.current && boundsRef.current) {
       mapInstance.current.fitBounds(boundsRef.current.pad(0.15))
     }
+  }
+
+  async function addPanelLocationToPlan() {
+    if (!panel?.loc_key) return
+    if (!tripTargetId) {
+      setPanelError('Select a plan before adding this location.')
+      return
+    }
+
+    const targetPlan = trips.find(plan => String(plan.id) === String(tripTargetId))
+    if (!targetPlan) {
+      setPanelError('Select a valid plan.')
+      return
+    }
+
+    const latitude = Number(panel.latitude)
+    const longitude = Number(panel.longitude)
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setPanelError('This location does not have coordinates to add to a plan.')
+      return
+    }
+
+    const stop = {
+      loc_key: `map:${panel.loc_key}`,
+      location_name: panel.location_name,
+      state_province: panel.state_province || '',
+      notes: 'Added from map',
+      latitude,
+      longitude,
+      species_count: 0,
+      visit_count: 0,
+      last_visit: '',
+      custom: true,
+      source: 'map'
+    }
+
+    const itinerary = Array.isArray(targetPlan.itinerary) ? targetPlan.itinerary : []
+    if (itinerary.some(item => item.loc_key === stop.loc_key)) {
+      setPanelMessage('That location is already on this plan.')
+      return
+    }
+
+    const nextItinerary = [...itinerary, stop]
+    const response = await fetch(`/api/trips/${targetPlan.id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itinerary: nextItinerary })
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      setPanelError(data.error || 'Could not add location to plan')
+      return
+    }
+
+    setTrips(prev => prev.map(plan => (String(plan.id) === String(targetPlan.id) ? data : plan)))
+    setPanelMessage(`Added to ${data.title}.`)
   }
 
   const hotspotList = (
@@ -258,11 +373,49 @@ export default function BirdMap() {
       <div className="map-panel-header">
         <div>
           <div className="map-panel-title">{panel.location_name}</div>
-          {!panelLoading && !panelError && <div className="map-panel-meta">{panel.species.length} species</div>}
+          {!panelLoading && !panelError && (
+            <div className="map-panel-meta">
+              {panel.species.length} species
+              {panel.state_province ? ` · ${panel.state_province}` : ''}
+              {Number.isFinite(Number(panel.latitude)) && Number.isFinite(Number(panel.longitude))
+                ? ` · ${Number(panel.latitude).toFixed(4)}, ${Number(panel.longitude).toFixed(4)}`
+                : ''}
+            </div>
+          )}
         </div>
         <button className="secondary" onClick={() => setPanel(null)} type="button">Close</button>
       </div>
       <div className="map-panel-body">
+        <div className="map-panel-actions">
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>Add to plan</label>
+            <select
+              value={tripTargetId}
+              onChange={e => setTripTargetId(e.target.value)}
+              disabled={tripsLoading || editableTrips.length === 0}
+            >
+              <option value="">{tripsLoading ? 'Loading plans...' : editableTrips.length ? 'Select a plan...' : 'No active plans'}</option>
+              {editableTrips.map(plan => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.title} · {plan.status}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="map-panel-action-row">
+            <button
+              type="button"
+              onClick={addPanelLocationToPlan}
+              disabled={tripsLoading || editableTrips.length === 0 || !tripTargetId || !Number.isFinite(Number(panel.latitude)) || !Number.isFinite(Number(panel.longitude))}
+            >
+              Add location to plan
+            </button>
+            <button type="button" className="secondary" onClick={() => navigate('/trips')}>
+              Open trips
+            </button>
+          </div>
+          {panelMessage && <div className="map-panel-message">{panelMessage}</div>}
+        </div>
         {panelLoading ? (
           <div className="loading">Loading...</div>
         ) : panelError ? (

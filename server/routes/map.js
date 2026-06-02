@@ -42,6 +42,8 @@ router.get('/locations', requireAuth, async (req, res) => {
       properties: {
         loc_key: row.loc_key,
         location_name: row.location_name,
+        latitude: row.latitude,
+        longitude: row.longitude,
         state_province: row.state_province,
         species_count: row.species_count,
         visit_count: row.visit_count,
