@@ -21,7 +21,9 @@ export default function BirdMap() {
   const [panel, setPanel] = useState(null)
   const [panelLoading, setPanelLoading] = useState(false)
   const [panelError, setPanelError] = useState('')
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 780px)').matches
+  ))
   const [mobileDrawer, setMobileDrawer] = useState(null)
 
   useEffect(() => {
@@ -39,14 +41,27 @@ export default function BirdMap() {
   }, [])
 
   useEffect(() => {
-    if (!window.L) return
-    if (!mapInstance.current) {
-      mapInstance.current = window.L.map('bird-map').setView([38.5, -77.5], 7)
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      }).addTo(mapInstance.current)
+    if (!window.L || !mapRef.current) return
+
+    if (mapInstance.current) {
+      mapInstance.current.remove()
+      mapInstance.current = null
     }
-  }, [])
+
+    mapInstance.current = window.L.map(mapRef.current).setView([38.5, -77.5], 7)
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(mapInstance.current)
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove()
+        mapInstance.current = null
+        markersRef.current = []
+        boundsRef.current = null
+      }
+    }
+  }, [isMobile])
 
   useEffect(() => {
     if (!mapInstance.current || !window.L) return
@@ -125,7 +140,7 @@ export default function BirdMap() {
     }
 
     refresh()
-  }, [filter, speciesSearch])
+  }, [filter, speciesSearch, isMobile])
 
   async function openPanel(location) {
     setPanel({ location_name: location.location_name, loc_key: location.loc_key, species: [] })
