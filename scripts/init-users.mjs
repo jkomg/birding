@@ -23,7 +23,11 @@ const users = [
 for (const u of users) {
   const hash = await bcrypt.hash(u.password, 12)
   await db.execute({
-    sql: `INSERT OR IGNORE INTO users (username, display_name, password_hash) VALUES (?, ?, ?)`,
+    sql: `INSERT INTO users (username, display_name, password_hash)
+          VALUES (?, ?, ?)
+          ON CONFLICT(username) DO UPDATE SET
+            display_name = excluded.display_name,
+            password_hash = excluded.password_hash`,
     args: [u.username, u.display_name, hash]
   })
   console.log(`Seeded user: ${u.username}`)
