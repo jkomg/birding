@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth, useUsers, useUserFilter, getScopeLabel } from '../../App.jsx'
 
 const emptyForm = {
@@ -28,6 +28,9 @@ export default function TripsPage() {
   const [search, setSearch] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const customStopMapRef = useRef(null)
+  const customStopMapInstanceRef = useRef(null)
+  const customStopMarkerRef = useRef(null)
   const scopeLabel = getScopeLabel(filter, user, users)
   const editablePlans = plans.filter(plan => plan.status !== 'done')
   const currentPlan = plans.find(plan => plan.id === selectedPlanId) ?? null
@@ -69,6 +72,78 @@ export default function TripsPage() {
   useEffect(() => {
     loadSuggestions()
   }, [filter, search])
+
+  useEffect(() => {
+    if (!window.L || !customStopMapRef.current) return
+
+    if (customStopMapInstanceRef.current) {
+      customStopMapInstanceRef.current.remove()
+      customStopMapInstanceRef.current = null
+      customStopMarkerRef.current = null
+    }
+
+    const map = window.L.map(customStopMapRef.current, {
+      zoomControl: true,
+      scrollWheelZoom: false
+    }).setView([38.5, -77.5], 6)
+
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map)
+
+    map.on('click', event => {
+      setCustomStopForm(prev => ({
+        ...prev,
+        latitude: Number(event.latlng.lat).toFixed(6),
+        longitude: Number(event.latlng.lng).toFixed(6)
+      }))
+    })
+
+    customStopMapInstanceRef.current = map
+    setTimeout(() => map.invalidateSize(), 0)
+
+    return () => {
+      if (customStopMapInstanceRef.current) {
+        customStopMapInstanceRef.current.remove()
+        customStopMapInstanceRef.current = null
+        customStopMarkerRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const map = customStopMapInstanceRef.current
+    if (!map || !window.L) return
+
+    const lat = Number(customStopForm.latitude)
+    const lng = Number(customStopForm.longitude)
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng)
+
+    if (!hasCoords) {
+      if (customStopMarkerRef.current) {
+        map.removeLayer(customStopMarkerRef.current)
+        customStopMarkerRef.current = null
+      }
+      return
+    }
+
+    const latLng = [lat, lng]
+    if (!customStopMarkerRef.current) {
+      customStopMarkerRef.current = window.L.marker(latLng, { draggable: true }).addTo(map)
+      customStopMarkerRef.current.on('dragend', event => {
+        const position = event.target.getLatLng()
+        setCustomStopForm(prev => ({
+          ...prev,
+          latitude: Number(position.lat).toFixed(6),
+          longitude: Number(position.lng).toFixed(6)
+        }))
+      })
+    } else {
+      customStopMarkerRef.current.setLatLng(latLng)
+    }
+
+    map.setView(latLng, Math.max(map.getZoom(), 11))
+  }, [customStopForm.latitude, customStopForm.longitude])
 
   const itineraryKeys = useMemo(
     () => new Set(itinerary.map(item => item.loc_key)),
@@ -217,7 +292,7 @@ export default function TripsPage() {
     if (!stop) return
 
     const added = await addStopToTarget(stop, 'Added custom stop.')
-    if (added) setCustomStopForm({ name: '', area: '', notes: '' })
+    if (added) setCustomStopForm({ name: '', area: '', notes: '', latitude: '', longitude: '' })
   }
 
   async function savePlan(e) {
@@ -415,11 +490,28 @@ export default function TripsPage() {
                 placeholder="Parking, access, timing, backup plan..."
               />
             </div>
+            <div className="form-group" style={{ marginTop: '0.75rem' }}>
+              <label>Drop pin on map</label>
+              <div className="trip-mini-map" ref={customStopMapRef} />
+              <div className="trip-panel-empty" style={{ marginTop: '0.4rem' }}>
+                Tap the map to set coordinates, or drag the pin to fine-tune it.
+              </div>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', marginTop: '0.75rem', flexWrap: 'wrap' }}>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                 Added to the selected plan, or the current draft if none is selected. Coordinates are optional.
               </div>
-              <button type="button" onClick={addCustomStop}>Add custom stop</button>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setCustomStopForm(prev => ({ ...prev, latitude: '', longitude: '' }))}
+                  disabled={!customStopForm.latitude && !customStopForm.longitude}
+                >
+                  Clear pin
+                </button>
+                <button type="button" onClick={addCustomStop}>Add custom stop</button>
+              </div>
             </div>
           </div>
         </div>

@@ -394,6 +394,14 @@ tr:hover td { background: var(--bg); }
   width: 100%;
 }
 
+.trip-mini-map {
+  height: 220px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #eef5ee;
+}
+
 /* Map */
 .map-layout {
   display: grid;
@@ -730,6 +738,10 @@ tr:hover td { background: var(--bg); }
 
   .trip-custom-grid {
     grid-template-columns: 1fr;
+  }
+
+  .trip-mini-map {
+    height: 180px;
   }
 
   .trip-stop,
