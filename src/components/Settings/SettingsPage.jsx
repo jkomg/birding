@@ -6,7 +6,11 @@ export default function SettingsPage() {
   const [form, setForm] = useState({ display_name: '', ebird_api_key: '', ebird_display_name: '', ebird_regions: '', current_password: '', new_password: '' })
   const [syncLog, setSyncLog] = useState([])
   const [syncDetails, setSyncDetails] = useState(null)
+  const [regionSuggestions, setRegionSuggestions] = useState([])
+  const [regionCounts, setRegionCounts] = useState([])
   const [syncing, setSyncing] = useState(false)
+  const [loadingRegions, setLoadingRegions] = useState(false)
+  const [loadingDebug, setLoadingDebug] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
@@ -42,6 +46,45 @@ export default function SettingsPage() {
     const log = await fetch('/api/sync/log', { credentials: 'include' }).then(r => r.json())
     setSyncLog(log)
     setSyncing(false)
+  }
+
+  async function loadRegionSuggestions() {
+    setLoadingRegions(true)
+    setError('')
+    try {
+      const res = await fetch('/api/sync/regions', { credentials: 'include' })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Could not load region suggestions')
+        return
+      }
+      setRegionSuggestions(Array.isArray(data.regions) ? data.regions : [])
+      setRegionCounts(Array.isArray(data.counts) ? data.counts : [])
+      if (Array.isArray(data.regions) && data.regions.length) {
+        setForm(prev => ({ ...prev, ebird_regions: data.regions.join(',') }))
+        setMsg('Filled regions from your existing sightings.')
+      } else {
+        setMsg('No regions found yet. Import or sync some sightings first.')
+      }
+    } finally {
+      setLoadingRegions(false)
+    }
+  }
+
+  async function runSyncDebug() {
+    setLoadingDebug(true)
+    setError('')
+    try {
+      const res = await fetch('/api/sync/debug', { credentials: 'include' })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Could not run sync debug')
+        return
+      }
+      setSyncDetails(prev => ({ ...(prev || {}), debug: data }))
+    } finally {
+      setLoadingDebug(false)
+    }
   }
 
   function field(key, label, opts = {}) {
@@ -106,6 +149,33 @@ export default function SettingsPage() {
             ? 'Automation is ready. Use Sync Now to test the connection, then let the cron job pull new sightings in the background.'
             : 'Finish the missing fields above before automation can run.'}
         </div>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.85rem' }}>
+          <button type="button" className="secondary" onClick={loadRegionSuggestions} disabled={loadingRegions}>
+            {loadingRegions ? 'Finding regions...' : 'Auto-fill regions'}
+          </button>
+          <button type="button" className="secondary" onClick={runSyncDebug} disabled={loadingDebug}>
+            {loadingDebug ? 'Checking...' : 'Run sync debug'}
+          </button>
+        </div>
+        {(regionSuggestions.length > 0 || regionCounts.length > 0) && (
+          <div style={{ marginTop: '0.9rem', padding: '0.85rem', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg)', fontSize: '0.85rem' }}>
+            <div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>Suggested regions</div>
+            {regionSuggestions.length > 0 ? (
+              <div style={{ marginBottom: '0.55rem' }}>{regionSuggestions.join(', ')}</div>
+            ) : (
+              <div style={{ color: 'var(--text-muted)' }}>No regions found yet.</div>
+            )}
+            {regionCounts.length > 0 && (
+              <div style={{ color: 'var(--text-muted)' }}>
+                {regionCounts.slice(0, 6).map(item => (
+                  <div key={item.region}>
+                    {item.region}: {item.sighting_count}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="card">
@@ -130,12 +200,26 @@ export default function SettingsPage() {
             <div>Regions checked: {syncDetails.regionsChecked ?? 0}</div>
             <div>Checklist candidates: {syncDetails.candidateChecklistCount ?? 0}</div>
             <div>Matched your eBird display name: {syncDetails.matchedChecklistCount ?? 0}</div>
+            {syncDetails.message && <div style={{ marginTop: '0.35rem' }}>{syncDetails.message}</div>}
             {syncDetails.newCount === 0 && syncDetails.uniqueNamesByRegion && (
               <div style={{ marginTop: '0.6rem', color: 'var(--text-muted)' }}>
                 {Object.entries(syncDetails.uniqueNamesByRegion).map(([region, names]) => (
                   <div key={region} style={{ marginBottom: '0.35rem' }}>
                     <div style={{ fontWeight: 600 }}>{region}</div>
                     <div>{Array.isArray(names) && names.length ? names.join(', ') : 'No names returned'}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {syncDetails.debug && (
+              <div style={{ marginTop: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.65rem' }}>
+                <div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>Debug names from eBird</div>
+                {Object.entries(syncDetails.debug.results || {}).map(([region, data]) => (
+                  <div key={region} style={{ marginBottom: '0.4rem' }}>
+                    <div style={{ fontWeight: 600 }}>{region} ({data.total})</div>
+                    <div style={{ color: 'var(--text-muted)' }}>
+                      {Array.isArray(data.unique_names) && data.unique_names.length ? data.unique_names.join(', ') : 'No names returned'}
+                    </div>
                   </div>
                 ))}
               </div>

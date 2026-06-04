@@ -41,6 +41,26 @@ router.get('/debug', requireAuth, async (req, res) => {
   }
 })
 
+router.get('/regions', requireAuth, async (req, res) => {
+  try {
+    const r = await db.execute({
+      sql: `SELECT state_province as region, COUNT(*) as sighting_count
+            FROM sightings
+            WHERE user_id=? AND state_province IS NOT NULL AND TRIM(state_province) != ''
+            GROUP BY state_province
+            ORDER BY sighting_count DESC, region ASC`,
+      args: [req.user.id]
+    })
+
+    res.json({
+      regions: r.rows.map(row => row.region).filter(Boolean),
+      counts: r.rows.map(row => ({ region: row.region, sighting_count: row.sighting_count }))
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 router.get('/log', requireAuth, async (req, res) => {
   try {
     const r = await db.execute({
