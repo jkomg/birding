@@ -76,7 +76,40 @@ router.post('/', requireAuth, upload.single('file'), async (req, res) => {
       }
     }
 
-    res.json({ added, skipped, total: rows.length })
+    const suggestedRegionsResult = await db.execute({
+      sql: `SELECT state_province as region, COUNT(*) as sighting_count
+            FROM sightings
+            WHERE user_id=? AND state_province IS NOT NULL AND TRIM(state_province) != ''
+            GROUP BY state_province
+            ORDER BY sighting_count DESC, region ASC`,
+      args: [req.user.id]
+    })
+
+    const suggestedRegions = suggestedRegionsResult.rows.map(row => row.region).filter(Boolean)
+    let autoFilledRegions = false
+
+    if (added > 0 && suggestedRegions.length) {
+      const currentUser = await db.execute({
+        sql: 'SELECT ebird_regions FROM users WHERE id=?',
+        args: [req.user.id]
+      })
+
+      if (!currentUser.rows[0]?.ebird_regions) {
+        await db.execute({
+          sql: 'UPDATE users SET ebird_regions=? WHERE id=?',
+          args: [suggestedRegions.join(','), req.user.id]
+        })
+        autoFilledRegions = true
+      }
+    }
+
+    res.json({
+      added,
+      skipped,
+      total: rows.length,
+      suggested_regions: suggestedRegions,
+      auto_filled_regions: autoFilledRegions ? suggestedRegions : []
+    })
   } catch (err) {
     console.error('Import error:', err)
     res.status(500).json({ error: err.message })

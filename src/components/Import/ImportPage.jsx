@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../App.jsx'
 
 export default function ImportPage() {
+  const { setUser } = useAuth()
   const [file, setFile] = useState(null)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -20,6 +22,8 @@ export default function ImportPage() {
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Import failed'); return }
       setResult(data)
+      const me = await fetch('/api/me', { credentials: 'include' }).then(r => r.json())
+      setUser(me)
     } catch {
       setError('Network error')
     } finally {
@@ -47,6 +51,11 @@ export default function ImportPage() {
         {result && (
           <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f0faf0', borderRadius: '6px', fontSize: '0.875rem' }}>
             <strong>Done!</strong> {result.added} sightings added, {result.skipped} skipped (already existed).
+            {Array.isArray(result.auto_filled_regions) && result.auto_filled_regions.length > 0 && (
+              <div style={{ marginTop: '0.45rem' }}>
+                Regions auto-filled: {result.auto_filled_regions.join(', ')}
+              </div>
+            )}
           </div>
         )}
         <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
