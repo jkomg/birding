@@ -5,6 +5,7 @@ export default function SettingsPage() {
   const { user, setUser } = useAuth()
   const [form, setForm] = useState({ display_name: '', ebird_api_key: '', ebird_display_name: '', ebird_regions: '', current_password: '', new_password: '' })
   const [syncLog, setSyncLog] = useState([])
+  const [syncDetails, setSyncDetails] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
@@ -36,7 +37,8 @@ export default function SettingsPage() {
     const res = await fetch('/api/sync', { method: 'POST', credentials: 'include' })
     const data = await res.json()
     if (!res.ok) { setError(data.error); setSyncing(false); return }
-    setMsg(`Sync complete: ${data.newCount} new sightings`)
+    setSyncDetails(data)
+    setMsg(data.message || `Sync complete: ${data.newCount} new sightings`)
     const log = await fetch('/api/sync/log', { credentials: 'include' }).then(r => r.json())
     setSyncLog(log)
     setSyncing(false)
@@ -122,6 +124,24 @@ export default function SettingsPage() {
             </span>
           </div>
         ))}
+        {syncDetails && (
+          <div style={{ marginTop: '1rem', padding: '0.85rem', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg)', fontSize: '0.85rem' }}>
+            <div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>Latest sync details</div>
+            <div>Regions checked: {syncDetails.regionsChecked ?? 0}</div>
+            <div>Checklist candidates: {syncDetails.candidateChecklistCount ?? 0}</div>
+            <div>Matched your eBird display name: {syncDetails.matchedChecklistCount ?? 0}</div>
+            {syncDetails.newCount === 0 && syncDetails.uniqueNamesByRegion && (
+              <div style={{ marginTop: '0.6rem', color: 'var(--text-muted)' }}>
+                {Object.entries(syncDetails.uniqueNamesByRegion).map(([region, names]) => (
+                  <div key={region} style={{ marginBottom: '0.35rem' }}>
+                    <div style={{ fontWeight: 600 }}>{region}</div>
+                    <div>{Array.isArray(names) && names.length ? names.join(', ') : 'No names returned'}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

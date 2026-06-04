@@ -2,6 +2,17 @@ import cron from 'node-cron'
 import { db, getAllUsers } from './db.js'
 import { ebirdGet } from './ebird.js'
 
+function normalizeDisplayName(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
+function checklistMatchesUser(checklist, user) {
+  return normalizeDisplayName(checklist?.userDisplayName) === normalizeDisplayName(user?.ebird_display_name)
+}
+
 export async function storeSightings(userId, checklist, source = 'api') {
   const obs = checklist.obs ?? []
   let inserted = 0
@@ -56,6 +67,10 @@ export async function syncUser(user) {
 
   const regions = user.ebird_regions.split(',').map(r => r.trim()).filter(Boolean)
   let newCount = 0
+  let matchedChecklistCount = 0
+  let candidateChecklistCount = 0
+  const uniqueNamesByRegion = {}
+  const seenSubIds = new Set()
 
   try {
     for (const region of regions) {
@@ -64,9 +79,16 @@ export async function syncUser(user) {
         user.ebird_api_key
       )
 
-      const mine = lists.filter(l => l.userDisplayName === user.ebird_display_name)
+      candidateChecklistCount += Array.isArray(lists) ? lists.length : 0
+      uniqueNamesByRegion[region] = [...new Set((Array.isArray(lists) ? lists : []).map(l => l.userDisplayName).filter(Boolean))].sort()
+
+      const mine = (Array.isArray(lists) ? lists : []).filter(checklist => checklistMatchesUser(checklist, user))
+      matchedChecklistCount += mine.length
 
       for (const checklist of mine) {
+        if (seenSubIds.has(checklist.subId)) continue
+        seenSubIds.add(checklist.subId)
+
         const exists = await db.execute({
           sql: 'SELECT id FROM sightings WHERE user_id=? AND submission_id=? LIMIT 1',
           args: [user.id, checklist.subId]
@@ -93,7 +115,21 @@ export async function syncUser(user) {
       args: [user.id, newCount, regions.join(',')]
     })
 
-    return { newCount, status: 'success' }
+    const message = newCount > 0
+      ? `Imported ${newCount} new sightings.`
+      : matchedChecklistCount === 0
+        ? 'Sync ran, but none of the returned checklists matched your configured eBird display name.'
+        : 'Sync ran, but every matching checklist was already imported.'
+
+    return {
+      newCount,
+      status: 'success',
+      message,
+      regionsChecked: regions.length,
+      candidateChecklistCount,
+      matchedChecklistCount,
+      uniqueNamesByRegion
+    }
   } catch (err) {
     await db.execute({
       sql: `INSERT INTO sync_log (user_id, new_sightings, regions_checked, status, message)
