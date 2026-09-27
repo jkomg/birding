@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
+import rateLimit from 'express-rate-limit'
 import { getUserById, getSession, createSession, deleteSession, getUserByUsername } from './db.js'
 
 export function generateToken() {
@@ -30,7 +31,15 @@ export async function requireAuth(req, res, next) {
 }
 
 export function authRouter(app) {
-  app.post('/api/login', async (req, res) => {
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'Too many login attempts. Try again in a few minutes.' }
+  })
+
+  app.post('/api/login', loginLimiter, async (req, res) => {
     try {
       const { username, password } = req.body
       if (!username || !password) return res.status(400).json({ error: 'Username and password required' })
