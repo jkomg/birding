@@ -1,0 +1,11 @@
+services:
+  birding:
+    build:
+      context: .
+    ports:
+      - "5004:8080"
+    environment:
+      PORT: 8080
+    env_file:
+      - .env
+    restart: unless-stopped

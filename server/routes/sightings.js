@@ -1,8 +1,73 @@
 import { Router } from 'express'
+import { randomUUID } from 'crypto'
 import { db } from '../db.js'
 import { requireAuth } from '../auth.js'
 
 const router = Router()
+
+// Fast manual capture for the mobile/PWA workflow. These records intentionally
+// live in the same sightings table as eBird imports so the rest of the app can
+// immediately use them in the life list, map, outings, and dashboard.
+router.post('/', requireAuth, async (req, res) => {
+  try {
+    const {
+      common_name,
+      scientific_name = '',
+      species_code = null,
+      count = 'X',
+      location_name = null,
+      latitude = null,
+      longitude = null,
+      observed_date,
+      observed_time = null,
+      observation_details = null
+    } = req.body || {}
+
+    if (!String(common_name || '').trim()) {
+      return res.status(400).json({ error: 'Species name is required' })
+    }
+    if (!observed_date) {
+      return res.status(400).json({ error: 'Observation date is required' })
+    }
+
+    const cleanName = String(common_name).trim()
+    const dedupKey = species_code || cleanName
+    const submissionId = `manual-${randomUUID()}`
+    await db.execute({
+      sql: `INSERT INTO sightings
+        (user_id, submission_id, common_name, scientific_name, species_code, dedup_key,
+         count, location_name, latitude, longitude, observed_date, observed_time,
+         observation_details, source)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      args: [
+        req.user.id,
+        submissionId,
+        cleanName,
+        String(scientific_name || '').trim(),
+        species_code || null,
+        dedupKey,
+        String(count || 'X'),
+        location_name ? String(location_name).trim() : null,
+        latitude === '' || latitude == null ? null : Number(latitude),
+        longitude === '' || longitude == null ? null : Number(longitude),
+        observed_date,
+        observed_time || null,
+        observation_details ? String(observation_details).trim() : null,
+        'manual'
+      ]
+    })
+
+    const sighting = await db.execute({
+      sql: `SELECT s.*, u.display_name, u.username
+            FROM sightings s JOIN users u ON u.id = s.user_id
+            WHERE s.user_id=? AND s.submission_id=?`,
+      args: [req.user.id, submissionId]
+    })
+    res.status(201).json(sighting.rows[0])
+  } catch (err) {
+    res.status(400).json({ error: err.message })
+  }
+})
 
 // GeoJSON endpoint for the map
 router.get('/geojson', requireAuth, async (req, res) => {

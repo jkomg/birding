@@ -1,6 +1,12 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth, useUsers, useUserFilter, getScopeLabel } from '../App.jsx'
+import QuickAdd from './QuickAdd/QuickAdd.jsx'
+
+function formatDate(value) {
+  if (!value) return 'Unknown date'
+  return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -8,101 +14,72 @@ export default function Dashboard() {
   const { filter } = useUserFilter()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+  const [refresh, setRefresh] = useState(0)
 
   useEffect(() => {
+    let active = true
+    setError('')
     fetch(`/api/dashboard?user=${filter}`, { credentials: 'include' })
-      .then(r => r.json())
-      .then(setData)
-  }, [filter])
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('Could not load today')))
+      .then(next => active && setData(next))
+      .catch(err => active && setError(err.message))
+    return () => { active = false }
+  }, [filter, refresh])
 
-  if (!data) return <div className="loading">Loading...</div>
+  if (error) return <div className="empty-state"><div className="empty-icon">!</div><h2>Today is unavailable</h2><p>{error}</p><button onClick={() => setRefresh(value => value + 1)}>Try again</button></div>
+  if (!data) return <div className="loading"><div className="loading-pulse" />Loading your birding day...</div>
 
-  const me = data.per_user.find(u => u.username === user?.username)
-  const other = data.per_user.find(u => u.username !== user?.username)
+  const me = data.per_user.find(item => item.username === user?.username)
+  const other = data.per_user.find(item => item.username !== user?.username)
   const scopeLabel = getScopeLabel(filter, user, users)
+  const latest = data.recent_sightings.slice(0, 5)
+  const todayCount = data.recent_sightings.filter(item => item.observed_date === new Date().toISOString().slice(0, 10)).length
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1>Dashboard</h1>
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            Viewing {scopeLabel.toLowerCase()}.
+    <div className="today-page">
+      <section className="today-hero">
+        <div className="hero-copy">
+          <div className="eyebrow">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <h1>Good birding, {user?.display_name?.split(' ')[0] || 'friend'}.</h1>
+          <p>{scopeLabel}. Keep the day moving by logging what you notice as it happens.</p>
+          <div className="hero-actions">
+            <QuickAdd onSaved={() => setRefresh(value => value + 1)} />
+            <Link className="hero-secondary-action" to="/trips">Plan an outing <span>→</span></Link>
           </div>
         </div>
-      </div>
+        <div className="hero-bird" aria-hidden="true">✦</div>
+      </section>
 
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-card" style={{ borderColor: 'var(--green)', borderWidth: 2 }}>
-          <div className="value">{me?.species_count ?? 0}</div>
-          <div className="label">Your Species</div>
-        </div>
-        {other && (
-          <div className="stat-card">
-            <div className="value">{other.species_count}</div>
-            <div className="label">{other.display_name}'s Species</div>
-          </div>
-        )}
-        <div className="stat-card">
-          <div className="value" style={{ color: 'var(--green-light)' }}>{data.shared_species}</div>
-          <div className="label">Seen Together</div>
-        </div>
-      </div>
+      <section className="stats-grid today-stats">
+        <div className="stat-card stat-card-featured"><div className="stat-label">Your species</div><div className="stat-value">{me?.species_count ?? 0}</div><div className="stat-caption">life list</div></div>
+        <div className="stat-card"><div className="stat-label">This view</div><div className="stat-value">{data.shared_species}</div><div className="stat-caption">shared species</div></div>
+        <div className="stat-card"><div className="stat-label">Today</div><div className="stat-value">{todayCount}</div><div className="stat-caption">recent records</div></div>
+        {other && <div className="stat-card stat-card-muted"><div className="stat-label">{other.display_name}</div><div className="stat-value">{other.species_count}</div><div className="stat-caption">species seen</div></div>}
+      </section>
 
-      <div className="card">
-        <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Recent Sightings</h2>
-        {data.recent_sightings.length === 0 ? (
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            No sightings yet. <span style={{ color: 'var(--green)', cursor: 'pointer' }} onClick={() => navigate('/import')}>Import your eBird CSV</span> to get started.
-          </div>
-        ) : (
-          <>
-            <div className="table-wrap mobile-hide">
-            <table>
-              <thead>
-                <tr><th>Date</th><th>Species</th><th>Location</th><th>Who</th></tr>
-              </thead>
-              <tbody>
-                {data.recent_sightings.map(s => (
-                  <tr key={s.id} style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}>
-                    <td>{s.observed_date}</td>
-                    <td>{s.common_name}</td>
-                    <td>{s.location_name}</td>
-                    <td style={{ color: s.username === user?.username ? 'var(--green)' : 'var(--text-muted)' }}>
-                      {s.display_name}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-            <div className="mobile-card-list mobile-show">
-              {data.recent_sightings.map(s => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className="mobile-card"
-                  onClick={() => navigate(`/species/${encodeURIComponent(s.species_code || s.common_name)}`)}
-                >
-                  <div className="mobile-card-title-row">
-                    <div>
-                      <div className="mobile-card-title">{s.common_name}</div>
-                      <div className="mobile-card-sub">{s.location_name}</div>
-                    </div>
-                    <div className="mobile-card-meta">{s.observed_date}</div>
-                  </div>
-                  <div className="mobile-card-foot">
-                    <span>{s.display_name}</span>
-                    <span style={{ color: s.username === user?.username ? 'var(--green)' : 'var(--text-muted)' }}>
-                      {s.username === user?.username ? 'You' : s.display_name}
-                    </span>
-                  </div>
+      <div className="today-columns">
+        <section className="card recent-card">
+          <div className="section-heading"><div><div className="eyebrow">Your field notes</div><h2>Recent sightings</h2></div><Link to="/timeline">See all <span>→</span></Link></div>
+          {latest.length === 0 ? (
+            <div className="empty-inline"><span className="empty-inline-icon">◌</span><div><strong>Your list starts here.</strong><p>Log your first bird or import your eBird history.</p></div></div>
+          ) : (
+            <div className="sighting-list">
+              {latest.map(sighting => (
+                <button key={sighting.id} className="sighting-row" type="button" onClick={() => navigate(`/species/${encodeURIComponent(sighting.species_code || sighting.common_name)}`)}>
+                  <span className="sighting-mark">{sighting.source === 'manual' ? '✦' : '↗'}</span>
+                  <span className="sighting-main"><strong>{sighting.common_name}</strong><span>{sighting.location_name || 'Location not recorded'}</span></span>
+                  <span className="sighting-meta"><strong>{formatDate(sighting.observed_date)}</strong><span>{sighting.display_name}</span></span>
                 </button>
               ))}
             </div>
-          </>
-        )}
+          )}
+        </section>
+
+        <aside className="today-side-column">
+          <section className="card next-card"><div className="eyebrow">Keep exploring</div><h2>Make the next outing count.</h2><p>Use your past sightings to choose a place, set targets, and keep a simple field plan.</p><Link className="text-link" to="/trips">Open trip planner <span>→</span></Link></section>
+          <section className="card source-card"><div className="source-icon">↗</div><div><strong>eBird connection</strong><p>{user?.last_synced_at ? `Last checked ${new Date(user.last_synced_at).toLocaleDateString()}.` : 'Connect eBird to bring in your history.'}</p></div><Link to={user?.last_synced_at ? '/settings' : '/import'}>{user?.last_synced_at ? 'Manage' : 'Get started'} <span>→</span></Link></section>
+        </aside>
       </div>
     </div>
   )

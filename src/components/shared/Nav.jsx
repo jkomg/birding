@@ -17,14 +17,14 @@ export default function Nav() {
 
   return (
     <nav>
-      <span className="logo">Bird Tracker</span>
-      <NavLink to="/">Home</NavLink>
-      <NavLink to="/map">Map</NavLink>
-      <NavLink to="/lifelist">Life List</NavLink>
-      <NavLink to="/timeline">Timeline</NavLink>
-      <NavLink to="/trips">Trips</NavLink>
-      <NavLink to="/import">Import</NavLink>
-      <NavLink to="/settings">Settings</NavLink>
+      <NavLink className="logo" to="/">Field Notes</NavLink>
+      <div className="nav-links">
+        <NavLink to="/" end><span className="nav-icon">⌂</span><span>Today</span></NavLink>
+        <NavLink to="/map"><span className="nav-icon">⌖</span><span>Map</span></NavLink>
+        <NavLink to="/lifelist"><span className="nav-icon">✦</span><span>Life list</span></NavLink>
+        <NavLink to="/timeline"><span className="nav-icon">☷</span><span>Outings</span></NavLink>
+        <NavLink to="/trips"><span className="nav-icon">↗</span><span>Plans</span></NavLink>
+      </div>
       <div className="user-toggle">
         <div className="user-toggle-label">{scopeLabel}</div>
         <button className={filter === 'both' ? 'active' : ''} onClick={() => setFilter('both')} aria-pressed={filter === 'both'}>
@@ -36,9 +36,10 @@ export default function Nav() {
           </button>
         ))}
       </div>
-      <button className="secondary" onClick={logout} style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}>
-        {user?.display_name} · Logout
-      </button>
+      <div className="nav-account">
+        <NavLink to="/settings" className="nav-settings" aria-label="Settings">⚙</NavLink>
+        <button className="account-button" onClick={logout}>{user?.display_name?.split(' ')[0]} <span>↪</span></button>
+      </div>
     </nav>
   )
 }

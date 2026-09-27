@@ -1,0 +1,10 @@
+{
+  "name": "Field Notes",
+  "short_name": "Field Notes",
+  "description": "A personal birding field notebook.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f5ef",
+  "theme_color": "#163d32",
+  "icons": []
+}
