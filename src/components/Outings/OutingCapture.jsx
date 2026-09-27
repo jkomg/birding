@@ -16,6 +16,7 @@ export default function OutingCapture() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [locationStatus, setLocationStatus] = useState('')
   const [startForm, setStartForm] = useState({ title: '', location_name: '', latitude: '', longitude: '' })
   const [observation, setObservation] = useState({ common_name: '', count: 'X', evidence: 'seen', notes: '' })
 
@@ -29,10 +30,27 @@ export default function OutingCapture() {
   }, [id, isNew])
 
   function locate() {
-    if (!navigator.geolocation) return setError('Location is not available in this browser.')
+    setError('')
+    setLocationStatus('Finding your location...')
+    if (!navigator.geolocation) {
+      setLocationStatus('')
+      return setError('Location is not available in this browser.')
+    }
     navigator.geolocation.getCurrentPosition(
-      position => setStartForm(current => ({ ...current, latitude: position.coords.latitude.toFixed(6), longitude: position.coords.longitude.toFixed(6) })),
-      () => setError('Could not get your location. You can still enter the place name.')
+      position => {
+        setStartForm(current => ({
+          ...current,
+          location_name: current.location_name || 'Current location',
+          latitude: position.coords.latitude.toFixed(6),
+          longitude: position.coords.longitude.toFixed(6)
+        }))
+        setLocationStatus(`Location captured · ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`)
+      },
+      error => {
+        setLocationStatus('')
+        setError(error.code === 1 ? 'Location permission was denied. You can still enter the place name.' : 'Could not get your location. You can still enter the place name.')
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     )
   }
 
@@ -87,7 +105,7 @@ export default function OutingCapture() {
       <div className="capture-intro"><div className="eyebrow">Field mode</div><h1>Start an outing</h1><p>Keep the phone simple. We’ll remember the place and time while you focus on the birds.</p></div>
       <form className="card capture-start-card" onSubmit={startOuting}>
         <div className="form-group"><label htmlFor="outing-title">Name this outing</label><input id="outing-title" autoFocus placeholder="Morning at the marsh" value={startForm.title} onChange={event => setStartForm({ ...startForm, title: event.target.value })} /></div>
-        <div className="form-group"><label htmlFor="outing-location">Where are you birding?</label><div className="input-with-action"><input id="outing-location" required placeholder="Park, preserve, or backyard" value={startForm.location_name} onChange={event => setStartForm({ ...startForm, location_name: event.target.value })} /><button type="button" className="secondary locate-button" onClick={locate}>Use GPS</button></div></div>
+        <div className="form-group"><label htmlFor="outing-location">Where are you birding?</label><div className="input-with-action"><input id="outing-location" required placeholder="Park, preserve, or backyard" value={startForm.location_name} onChange={event => setStartForm({ ...startForm, location_name: event.target.value })} /><button type="button" className="secondary locate-button" onClick={locate}>{locationStatus === 'Finding your location...' ? 'Finding...' : 'Use GPS'}</button></div>{locationStatus && locationStatus !== 'Finding your location...' && <div className="location-status" aria-live="polite">✓ {locationStatus}</div>}</div>
         <button type="submit" disabled={saving}>{saving ? 'Starting...' : 'Start outing'}</button>
         {error && <div className="notice error">{error}</div>}
       </form>

@@ -126,6 +126,7 @@ textarea { resize: vertical; }
 .input-with-action { display: flex; gap: .5rem; }
 .input-with-action input { min-width: 0; }
 .locate-button { flex: 0 0 auto; }
+.location-status { margin-top: .4rem; color: var(--green); font-size: .75rem; }
 .capture-header { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1.25rem; }
 .capture-header .back-link { display: block; margin-bottom: .8rem; }
 .capture-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: 1.25rem; }
