@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { createClient } from '@libsql/client'
 import { tripPlanSchema } from '../server/trips.js'
+import { fieldOutingSchema } from '../server/fieldOutings.js'
 
 const db = createClient({
   url: process.env.TURSO_URL,
@@ -50,6 +51,7 @@ const schema = [
     observation_details TEXT,
     checklist_comments  TEXT,
     ml_catalog_numbers  TEXT,
+    outing_id           INTEGER REFERENCES field_outings(id),
     source              TEXT DEFAULT 'csv',
     imported_at         TEXT DEFAULT (datetime('now')),
     UNIQUE(user_id, submission_id, dedup_key)
@@ -91,12 +93,14 @@ const schema = [
   )`,
 
   ...tripPlanSchema,
+  ...fieldOutingSchema,
 
   // Indexes
   `CREATE INDEX IF NOT EXISTS idx_sightings_user ON sightings(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sightings_species ON sightings(species_code)`,
   `CREATE INDEX IF NOT EXISTS idx_sightings_date ON sightings(observed_date)`,
   `CREATE INDEX IF NOT EXISTS idx_sightings_submission ON sightings(submission_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_sightings_outing ON sightings(outing_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)`
 ]
 

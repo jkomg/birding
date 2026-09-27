@@ -20,7 +20,8 @@ router.post('/', requireAuth, async (req, res) => {
       longitude = null,
       observed_date,
       observed_time = null,
-      observation_details = null
+      observation_details = null,
+      outing_id = null
     } = req.body || {}
 
     if (!String(common_name || '').trim()) {
@@ -30,6 +31,14 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Observation date is required' })
     }
 
+    if (outing_id !== null && outing_id !== '') {
+      const outing = await db.execute({
+        sql: "SELECT id FROM field_outings WHERE id=? AND user_id=? AND status='active'",
+        args: [outing_id, req.user.id]
+      })
+      if (!outing.rows.length) return res.status(400).json({ error: 'Active outing not found' })
+    }
+
     const cleanName = String(common_name).trim()
     const dedupKey = species_code || cleanName
     const submissionId = `manual-${randomUUID()}`
@@ -37,8 +46,8 @@ router.post('/', requireAuth, async (req, res) => {
       sql: `INSERT INTO sightings
         (user_id, submission_id, common_name, scientific_name, species_code, dedup_key,
          count, location_name, latitude, longitude, observed_date, observed_time,
-         observation_details, source)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         observation_details, source, outing_id)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       args: [
         req.user.id,
         submissionId,
@@ -53,7 +62,8 @@ router.post('/', requireAuth, async (req, res) => {
         observed_date,
         observed_time || null,
         observation_details ? String(observation_details).trim() : null,
-        'manual'
+        'manual',
+        outing_id === '' ? null : outing_id
       ]
     })
 

@@ -1,0 +1,28 @@
+export const fieldOutingSchema = [
+  `CREATE TABLE IF NOT EXISTS field_outings (
+    id            INTEGER PRIMARY KEY,
+    user_id       INTEGER NOT NULL REFERENCES users(id),
+    title         TEXT NOT NULL,
+    location_name TEXT,
+    latitude      REAL,
+    longitude     REAL,
+    started_at    TEXT NOT NULL,
+    ended_at      TEXT,
+    notes         TEXT,
+    status        TEXT DEFAULT 'active',
+    created_at    TEXT DEFAULT (datetime('now')),
+    updated_at    TEXT DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_field_outings_user_status ON field_outings(user_id, status)`,
+  `CREATE INDEX IF NOT EXISTS idx_field_outings_started ON field_outings(started_at)`
+]
+
+export async function ensureFieldOutingSchema(db) {
+  for (const sql of fieldOutingSchema) await db.execute(sql)
+
+  const columns = await db.execute('PRAGMA table_info(sightings)')
+  if (!columns.rows.some(column => column.name === 'outing_id')) {
+    await db.execute('ALTER TABLE sightings ADD COLUMN outing_id INTEGER REFERENCES field_outings(id)')
+  }
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_sightings_outing ON sightings(outing_id)')
+}

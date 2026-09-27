@@ -10,6 +10,7 @@ import ImportPage from './components/Import/ImportPage.jsx'
 import TripsPage from './components/Trips/TripsPage.jsx'
 import SettingsPage from './components/Settings/SettingsPage.jsx'
 import SpeciesDetail from './components/Species/SpeciesDetail.jsx'
+import OutingCapture from './components/Outings/OutingCapture.jsx'
 
 export const AuthContext = createContext(null)
 export const UsersContext = createContext([])
@@ -90,6 +91,7 @@ export default function App() {
                     <Route path="/import" element={<ImportPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/species/:code" element={<SpeciesDetail />} />
+                    <Route path="/outing/:id" element={<OutingCapture />} />
                   </Routes>
                 </main>
               </ProtectedRoute>

@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [refresh, setRefresh] = useState(0)
+  const [activeOuting, setActiveOuting] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -26,6 +27,13 @@ export default function Dashboard() {
       .catch(err => active && setError(err.message))
     return () => { active = false }
   }, [filter, refresh])
+
+  useEffect(() => {
+    fetch('/api/field-outings/current', { credentials: 'include' })
+      .then(response => response.ok ? response.json() : null)
+      .then(setActiveOuting)
+      .catch(() => setActiveOuting(null))
+  }, [refresh])
 
   if (error) return <div className="empty-state"><div className="empty-icon">!</div><h2>Today is unavailable</h2><p>{error}</p><button onClick={() => setRefresh(value => value + 1)}>Try again</button></div>
   if (!data) return <div className="loading"><div className="loading-pulse" />Loading your birding day...</div>
@@ -45,11 +53,14 @@ export default function Dashboard() {
           <p>{scopeLabel}. Keep the day moving by logging what you notice as it happens.</p>
           <div className="hero-actions">
             <QuickAdd onSaved={() => setRefresh(value => value + 1)} />
+            <Link className="hero-secondary-action" to="/outing/new">Start an outing <span>→</span></Link>
             <Link className="hero-secondary-action" to="/trips">Plan an outing <span>→</span></Link>
           </div>
         </div>
         <div className="hero-bird" aria-hidden="true">✦</div>
       </section>
+
+      {activeOuting && <Link className="active-outing-banner" to={`/outing/${activeOuting.id}`}><span className="active-pulse" /><span><strong>Outing in progress: {activeOuting.title}</strong><small>{activeOuting.location_name || 'Location not set'} · {activeOuting.observation_count} records</small></span><span className="active-arrow">Continue →</span></Link>}
 
       <section className="stats-grid today-stats">
         <div className="stat-card stat-card-featured"><div className="stat-label">Your species</div><div className="stat-value">{me?.species_count ?? 0}</div><div className="stat-caption">life list</div></div>

@@ -10,6 +10,7 @@ import { authRouter, requireAuth } from './auth.js'
 import { db } from './db.js'
 import { startCron } from './sync.js'
 import { ensureTripPlanSchema } from './trips.js'
+import { ensureFieldOutingSchema } from './fieldOutings.js'
 
 import sightingsRouter from './routes/sightings.js'
 import mapRouter from './routes/map.js'
@@ -22,6 +23,7 @@ import syncRouter from './routes/syncRoute.js'
 import settingsRouter from './routes/settings.js'
 import dashboardRouter from './routes/dashboard.js'
 import tripsRouter from './routes/trips.js'
+import fieldOutingsRouter from './routes/fieldOutings.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = process.env.PORT || 5004
@@ -55,6 +57,7 @@ app.use('/api/sync', syncRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api/trips', tripsRouter)
+app.use('/api/field-outings', fieldOutingsRouter)
 
 // Serve React app in production
 if (isProd) {
@@ -66,6 +69,7 @@ if (isProd) {
 }
 
 await ensureTripPlanSchema(db)
+await ensureFieldOutingSchema(db)
 
 app.listen(PORT, () => {
   console.log(`Bird tracker server running on port ${PORT}`)
