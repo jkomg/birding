@@ -9,6 +9,7 @@ export const fieldOutingSchema = [
     started_at    TEXT NOT NULL,
     ended_at      TEXT,
     notes         TEXT,
+    planned_species_json TEXT,
     status        TEXT DEFAULT 'active',
     created_at    TEXT DEFAULT (datetime('now')),
     updated_at    TEXT DEFAULT (datetime('now'))
@@ -20,8 +21,13 @@ export const fieldOutingSchema = [
 export async function ensureFieldOutingSchema(db) {
   for (const sql of fieldOutingSchema) await db.execute(sql)
 
-  const columns = await db.execute('PRAGMA table_info(sightings)')
-  if (!columns.rows.some(column => column.name === 'outing_id')) {
+  const columns = await db.execute('PRAGMA table_info(field_outings)')
+  if (!columns.rows.some(column => column.name === 'planned_species_json')) {
+    await db.execute('ALTER TABLE field_outings ADD COLUMN planned_species_json TEXT')
+  }
+
+  const sightingColumns = await db.execute('PRAGMA table_info(sightings)')
+  if (!sightingColumns.rows.some(column => column.name === 'outing_id')) {
     await db.execute('ALTER TABLE sightings ADD COLUMN outing_id INTEGER REFERENCES field_outings(id)')
   }
   await db.execute('CREATE INDEX IF NOT EXISTS idx_sightings_outing ON sightings(outing_id)')
