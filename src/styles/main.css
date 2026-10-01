@@ -143,6 +143,10 @@ textarea { resize: vertical; }
 .place-result strong, .place-result small { display: block; }
 .place-result strong { line-height: 1.35; }
 .place-result small { margin-top: .25rem; color: var(--text-muted); font-size: .8rem; }
+.field-forecast { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; margin-top: .9rem; padding: .7rem; border: 1px solid #d9e5d9; border-radius: 10px; background: #fff; }
+.field-forecast div { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.field-forecast span { color: var(--text-muted); font-size: .65rem; }
+.field-forecast strong { color: var(--green-dark); font-size: .78rem; }
 .text-button { border: 0; padding: .15rem 0; color: var(--green-dark); background: transparent; cursor: pointer; }
 .plan-result-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin: 1rem 0 .55rem; font-size: .82rem; font-weight: 700; }
 .plan-result-heading small { color: var(--text-muted); font-size: .72rem; font-weight: 400; }
@@ -150,6 +154,8 @@ textarea { resize: vertical; }
 .likely-species { display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; padding: .7rem; border: 1px solid #d7e2d7; border-radius: 10px; background: white; color: var(--text); text-align: left; cursor: pointer; }
 .likely-species strong { font-size: .85rem; }
 .likely-species span { color: var(--text-muted); font-size: .7rem; }
+.likely-species-name { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
+.new-bird-badge { padding: .1rem .3rem; border-radius: 4px; color: #76511e !important; background: #f8e8bb; font-size: .6rem !important; font-weight: 700; }
 .likely-species.selected { border-color: var(--green); background: #e3f0e4; box-shadow: inset 0 0 0 1px var(--green); }
 .selected-targets { display: flex; flex-direction: column; gap: .2rem; margin: .9rem 0; padding: .75rem; border-radius: 10px; background: #eef6ee; color: var(--green-dark); font-size: .8rem; }
 .selected-targets span { color: var(--text-muted); line-height: 1.45; }
@@ -186,6 +192,7 @@ textarea { resize: vertical; }
   .place-search-row button { width: 100%; }
   .place-search-row span { text-align: center; }
   .likely-species-grid, .target-list { grid-template-columns: 1fr; }
+  .field-forecast { grid-template-columns: repeat(2, 1fr); gap: .65rem .4rem; }
   .outing-plan-results { padding: .8rem; }
 }
 

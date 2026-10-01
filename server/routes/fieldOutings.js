@@ -52,6 +52,36 @@ function likelySpecies(observations) {
   return [...byCode.values()].sort((a, b) => b.sightings - a.sightings || b.how_many - a.how_many).slice(0, 30)
 }
 
+const weatherDescriptions = {
+  0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
+  45: 'Foggy', 48: 'Foggy', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+  61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 71: 'Light snow', 73: 'Snow', 75: 'Heavy snow',
+  80: 'Rain showers', 81: 'Rain showers', 82: 'Heavy showers', 95: 'Thunderstorms', 96: 'Storms', 99: 'Storms'
+}
+
+async function getFieldForecast(place) {
+  const url = new URL('https://api.open-meteo.com/v1/forecast')
+  url.searchParams.set('latitude', place.latitude)
+  url.searchParams.set('longitude', place.longitude)
+  url.searchParams.set('daily', 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset')
+  url.searchParams.set('forecast_days', '2')
+  url.searchParams.set('timezone', 'auto')
+  const response = await fetch(url)
+  if (!response.ok) throw new Error('Weather unavailable')
+  const data = await response.json()
+  const day = data.daily?.time?.[1] ? 1 : 0
+  return {
+    date: data.daily.time[day],
+    description: weatherDescriptions[data.daily.weather_code[day]] || 'Mixed conditions',
+    high: Math.round(data.daily.temperature_2m_max[day]),
+    low: Math.round(data.daily.temperature_2m_min[day]),
+    rain_probability: data.daily.precipitation_probability_max[day],
+    sunrise: data.daily.sunrise[day],
+    sunset: data.daily.sunset[day],
+    timezone: data.timezone
+  }
+}
+
 router.get('/suggestions', requireAuth, async (req, res) => {
   try {
     const query = String(req.query.q || '').trim()
@@ -59,17 +89,30 @@ router.get('/suggestions', requireAuth, async (req, res) => {
     const place = await geocodePlace(query)
     if (!place) return res.status(404).json({ error: 'No place found. Try a nearby town or park name.' })
 
-    const user = await db.execute({ sql: 'SELECT ebird_api_key FROM users WHERE id=?', args: [req.user.id] })
+    const [user, householdSpecies, weatherResult] = await Promise.all([
+      db.execute({ sql: 'SELECT ebird_api_key FROM users WHERE id=?', args: [req.user.id] }),
+      db.execute('SELECT DISTINCT species_code, common_name FROM sightings WHERE species_code IS NOT NULL OR common_name IS NOT NULL'),
+      getFieldForecast(place).catch(() => null)
+    ])
     const apiKey = user.rows[0]?.ebird_api_key
-    if (!apiKey) return res.json({ place, species: [], hotspots: [], needs_ebird: true })
+    const seenAtHome = new Set(householdSpecies.rows.map(item => item.species_code || item.common_name?.toLowerCase()).filter(Boolean))
+    if (!apiKey) return res.json({ place, species: [], hotspots: [], weather: weatherResult, needs_ebird: true })
 
-    const [observations, hotspots] = await Promise.all([
+    const [observationsResult, hotspotsResult] = await Promise.allSettled([
       ebirdGet(`/v2/data/obs/geo/recent?lat=${place.latitude}&lng=${place.longitude}&dist=25&back=14&maxResults=200`, apiKey),
       ebirdGet(`/v2/ref/hotspot/geo?lat=${place.latitude}&lng=${place.longitude}&dist=25`, apiKey)
     ])
+    const observations = observationsResult.status === 'fulfilled' ? observationsResult.value : []
+    const hotspots = hotspotsResult.status === 'fulfilled' ? hotspotsResult.value : []
+    const species = likelySpecies(observations).map(item => ({
+      ...item,
+      seen_by_us: seenAtHome.has(item.species_code || item.common_name?.toLowerCase()),
+      priority: seenAtHome.has(item.species_code || item.common_name?.toLowerCase()) ? 'familiar' : 'new'
+    })).sort((a, b) => Number(b.priority === 'new') - Number(a.priority === 'new') || b.sightings - a.sightings)
     res.json({
       place,
-      species: likelySpecies(observations),
+      species,
+      weather: weatherResult,
       hotspots: hotspots.slice(0, 8).map(item => ({ loc_id: item.locId, name: item.locName, latitude: item.lat, longitude: item.lng, distance: item.distance }))
     })
   } catch (err) {
