@@ -67,12 +67,21 @@ export default function BirdMap() {
       mapInstance.current = null
     }
 
-    mapInstance.current = window.L.map(mapRef.current).setView([38.5, -77.5], 7)
+    mapInstance.current = window.L.map(mapRef.current, { zoomControl: false }).setView([38.5, -77.5], 7)
+    window.L.control.zoom({ position: 'bottomright' }).addTo(mapInstance.current)
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(mapInstance.current)
 
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => mapInstance.current?.invalidateSize({ pan: false }))
+      : null
+    resizeObserver?.observe(mapRef.current)
+    const resizeTimer = window.setTimeout(() => mapInstance.current?.invalidateSize({ pan: false }), 100)
+
     return () => {
+      window.clearTimeout(resizeTimer)
+      resizeObserver?.disconnect()
       if (mapInstance.current) {
         mapInstance.current.remove()
         mapInstance.current = null

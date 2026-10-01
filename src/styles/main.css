@@ -982,10 +982,15 @@ tr:hover td { background: var(--bg); }
 
   .map-mobile-sheet {
     top: 0.75rem;
+    bottom: 4.5rem;
   }
 
   .map-mobile-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .map-mobile-actions button:last-child {
+    grid-column: 1 / -1;
   }
 
   .map-main { order: 1; }
@@ -1002,7 +1007,7 @@ tr:hover td { background: var(--bg); }
     left: 0.75rem;
     right: 0.75rem;
     top: 0.75rem;
-    bottom: 0.75rem;
+    bottom: 4.5rem;
     max-height: none;
     z-index: 35;
     box-shadow: 0 18px 40px rgba(27, 67, 50, 0.22);
@@ -1010,6 +1015,11 @@ tr:hover td { background: var(--bg); }
 
   .map-canvas {
     height: 52vh;
+  }
+
+  #bird-map.map-canvas-mobile {
+    height: min(52svh, 500px);
+    min-height: 300px;
   }
 
   .map-toolbar {
