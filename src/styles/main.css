@@ -153,6 +153,13 @@ textarea { resize: vertical; }
 .observation-card { display: grid; gap: .75rem; padding: 1.35rem; margin-bottom: 1.25rem; background: #edf4eb; border-color: #cfe0cf; }
 .observation-card h2 { font: 400 1.45rem Georgia, serif; }
 .capture-species-row { display: grid; grid-template-columns: minmax(0, 1fr) 74px; gap: .5rem; }
+.species-entry { position: relative; min-width: 0; }
+.species-autocomplete { position: absolute; z-index: 5; top: calc(100% + .25rem); right: 0; left: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 9px; background: #fff; box-shadow: 0 8px 22px rgba(28, 51, 42, .16); }
+.species-autocomplete button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: .6rem .7rem; border: 0; border-bottom: 1px solid var(--border); background: #fff; color: var(--text); text-align: left; }
+.species-autocomplete button:last-child { border-bottom: 0; }
+.species-autocomplete button:hover { background: var(--bg); }
+.species-autocomplete strong { font-size: .82rem; }
+.species-autocomplete small { color: var(--text-muted); font-size: .7rem; font-style: italic; }
 .place-search-row { display: flex; align-items: center; gap: .7rem; margin-top: .55rem; }
 .place-search-row span { color: var(--text-muted); font-size: .78rem; }
 .outing-plan-results { margin-top: 1rem; padding: 1rem; border: 1px solid #d9e5d9; border-radius: 14px; background: #f7fbf7; }
