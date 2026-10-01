@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [refresh, setRefresh] = useState(0)
   const [activeOuting, setActiveOuting] = useState(null)
+  const [plannedTrips, setPlannedTrips] = useState([])
 
   useEffect(() => {
     let active = true
@@ -33,6 +34,13 @@ export default function Dashboard() {
       .then(response => response.ok ? response.json() : null)
       .then(setActiveOuting)
       .catch(() => setActiveOuting(null))
+  }, [refresh])
+
+  useEffect(() => {
+    fetch('/api/trips', { credentials: 'include' })
+      .then(response => response.ok ? response.json() : [])
+      .then(plans => setPlannedTrips((Array.isArray(plans) ? plans : []).filter(plan => plan.status !== 'done').slice(0, 3)))
+      .catch(() => setPlannedTrips([]))
   }, [refresh])
 
   if (error) return <div className="empty-state"><div className="empty-icon">!</div><h2>Today is unavailable</h2><p>{error}</p><button onClick={() => setRefresh(value => value + 1)}>Try again</button></div>
@@ -61,6 +69,8 @@ export default function Dashboard() {
       </section>
 
       {activeOuting && <Link className="active-outing-banner" to={`/outing/${activeOuting.id}`}><span className="active-pulse" /><span><strong>Outing in progress: {activeOuting.title}</strong><small>{activeOuting.location_name || 'Location not set'} · {activeOuting.observation_count} records</small></span><span className="active-arrow">Continue →</span></Link>}
+
+      {plannedTrips.length > 0 && <section className="card planned-trips-card"><div className="section-heading"><div><div className="eyebrow">Ready when you are</div><h2>Planned outings</h2></div><Link to="/trips">Manage all <span>→</span></Link></div><div className="planned-trips-list">{plannedTrips.map(plan => <div className="planned-trip-row" key={plan.id}><div><strong>{plan.title}</strong><small>{plan.trip_date}{plan.target_area ? ` · ${plan.target_area}` : ''}</small></div><Link className="text-link" to={`/trips?plan=${plan.id}`}>Open plan <span>→</span></Link></div>)}</div></section>}
 
       <section className="stats-grid today-stats">
         <div className="stat-card stat-card-featured"><div className="stat-label">Your species</div><div className="stat-value">{me?.species_count ?? 0}</div><div className="stat-caption">life list</div></div>

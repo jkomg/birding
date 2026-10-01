@@ -116,6 +116,11 @@ textarea { resize: vertical; }
 .active-outing-banner small { margin-top: .15rem; color: var(--text-muted); font-size: .78rem; }
 .active-arrow { margin-left: auto; color: var(--green); font-size: .78rem; font-weight: 700; white-space: nowrap; }
 .active-pulse { width: 10px; height: 10px; background: #d97745; border-radius: 50%; box-shadow: 0 0 0 5px rgba(217,119,69,.12); }
+.planned-trips-card { margin: 1.25rem 0; }
+.planned-trips-list { display: grid; gap: .55rem; }
+.planned-trip-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 0; border-top: 1px solid var(--border); }
+.planned-trip-row strong, .planned-trip-row small { display: block; }
+.planned-trip-row small { margin-top: .15rem; color: var(--text-muted); font-size: .78rem; }
 .capture-page { max-width: 820px; margin: 0 auto; }
 .narrow-page { max-width: 600px; }
 .back-link { display: inline-block; margin-bottom: 1.35rem; color: var(--green); font-size: .82rem; font-weight: 700; text-decoration: none; }

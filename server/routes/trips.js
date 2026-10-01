@@ -137,6 +137,44 @@ router.post('/', requireAuth, async (req, res) => {
   }
 })
 
+router.post('/:id/start', requireAuth, async (req, res) => {
+  try {
+    const planResult = await db.execute({ sql: 'SELECT * FROM trip_plans WHERE id=? AND user_id=?', args: [req.params.id, req.user.id] })
+    const plan = planResult.rows[0]
+    if (!plan) return res.status(404).json({ error: 'Trip plan not found' })
+
+    const active = await db.execute({ sql: "SELECT id FROM field_outings WHERE user_id=? AND status='active' ORDER BY started_at DESC LIMIT 1", args: [req.user.id] })
+    if (active.rows[0]) return res.json({ outing_id: Number(active.rows[0].id), already_active: true })
+
+    const itinerary = parseItinerary(plan.itinerary_json)
+    const firstStop = itinerary.find(stop => stop.location_name) || {}
+    const plannedSpecies = String(plan.target_species || '')
+      .split(',').map(name => name.trim()).filter(Boolean)
+      .map(common_name => ({ common_name, sightings: 0, priority: 'target' }))
+
+    const result = await db.execute({
+      sql: `INSERT INTO field_outings
+            (user_id, title, location_name, latitude, longitude, started_at, notes, planned_species_json, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+      args: [
+        req.user.id,
+        plan.title,
+        firstStop.location_name || plan.target_area || null,
+        firstStop.latitude ?? null,
+        firstStop.longitude ?? null,
+        new Date().toISOString(),
+        plan.notes || null,
+        JSON.stringify(plannedSpecies)
+      ]
+    })
+
+    await db.execute({ sql: "UPDATE trip_plans SET status='planned', updated_at=datetime('now') WHERE id=? AND user_id=?", args: [req.params.id, req.user.id] })
+    res.status(201).json({ outing_id: Number(result.lastInsertRowid) })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const existing = await db.execute({

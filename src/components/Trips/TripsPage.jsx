@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth, useUsers, useUserFilter, getScopeLabel } from '../../App.jsx'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 const emptyForm = {
   title: '',
@@ -32,6 +33,8 @@ export default function TripsPage() {
   const customStopMapInstanceRef = useRef(null)
   const customStopMarkerRef = useRef(null)
   const scopeLabel = getScopeLabel(filter, user, users)
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const editablePlans = plans.filter(plan => plan.status !== 'done')
   const currentPlan = plans.find(plan => plan.id === selectedPlanId) ?? null
   const currentPlanLabel = currentPlan ? `${currentPlan.title} · ${currentPlan.status}` : 'New draft plan'
@@ -68,6 +71,12 @@ export default function TripsPage() {
   useEffect(() => {
     loadPlans()
   }, [])
+
+  useEffect(() => {
+    const requestedId = searchParams.get('plan')
+    const requestedPlan = plans.find(plan => String(plan.id) === String(requestedId))
+    if (requestedPlan && selectedPlanId === null) startEditing(requestedPlan)
+  }, [plans, searchParams, selectedPlanId])
 
   useEffect(() => {
     loadSuggestions()
@@ -339,6 +348,17 @@ export default function TripsPage() {
     setMessage('Trip plan deleted.')
   }
 
+  async function startPlan(plan) {
+    setError('')
+    const res = await fetch(`/api/trips/${plan.id}/start`, { method: 'POST', credentials: 'include' })
+    const data = await res.json()
+    if (!res.ok) {
+      setError(data.error || 'Could not start outing')
+      return
+    }
+    navigate(`/outing/${data.outing_id}`)
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -546,6 +566,7 @@ export default function TripsPage() {
                     <div className="trip-plan-meta">{Array.isArray(plan.itinerary) ? plan.itinerary.length : 0} stops</div>
                   </div>
                   <div className="trip-plan-card-actions">
+                    <button type="button" onClick={() => startPlan(plan)}>Start outing</button>
                     <button type="button" className="secondary" onClick={() => startEditing(plan)}>Current</button>
                     <button type="button" className="secondary" onClick={() => deletePlan(plan.id)}>Delete</button>
                   </div>
