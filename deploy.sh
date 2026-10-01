@@ -30,6 +30,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --region "$REGION" \
   --platform managed \
   --allow-unauthenticated \
+  --set-env-vars NODE_ENV=production \
   --set-secrets TURSO_URL=bird-turso-url:latest \
   --set-secrets TURSO_AUTH_TOKEN=bird-turso-auth-token:latest \
   --set-secrets SESSION_SECRET=bird-session-secret:latest \
