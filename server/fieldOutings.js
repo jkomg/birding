@@ -10,6 +10,7 @@ export const fieldOutingSchema = [
     ended_at      TEXT,
     notes         TEXT,
     planned_species_json TEXT,
+    planned_stops_json TEXT,
     status        TEXT DEFAULT 'active',
     created_at    TEXT DEFAULT (datetime('now')),
     updated_at    TEXT DEFAULT (datetime('now'))
@@ -24,6 +25,9 @@ export async function ensureFieldOutingSchema(db) {
   const columns = await db.execute('PRAGMA table_info(field_outings)')
   if (!columns.rows.some(column => column.name === 'planned_species_json')) {
     await db.execute('ALTER TABLE field_outings ADD COLUMN planned_species_json TEXT')
+  }
+  if (!columns.rows.some(column => column.name === 'planned_stops_json')) {
+    await db.execute('ALTER TABLE field_outings ADD COLUMN planned_stops_json TEXT')
   }
 
   const sightingColumns = await db.execute('PRAGMA table_info(sightings)')

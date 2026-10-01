@@ -9,10 +9,13 @@ const router = Router()
 function normalize(row) {
   if (!row) return null
   let plannedSpecies = []
+  let plannedStops = []
   try { plannedSpecies = row.planned_species_json ? JSON.parse(row.planned_species_json) : [] } catch { plannedSpecies = [] }
+  try { plannedStops = row.planned_stops_json ? JSON.parse(row.planned_stops_json) : [] } catch { plannedStops = [] }
   return {
     ...row,
     planned_species: plannedSpecies,
+    planned_stops: plannedStops,
     observation_count: Number(row.observation_count || 0),
     species_count: Number(row.species_count || 0),
     observations: row.observations || []
@@ -188,13 +191,13 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { title, location_name, latitude, longitude, started_at, notes, planned_species } = req.body || {}
+    const { title, location_name, latitude, longitude, started_at, notes, planned_species, planned_stops } = req.body || {}
     if (!String(title || '').trim()) return res.status(400).json({ error: 'Outing name is required' })
 
     const result = await db.execute({
       sql: `INSERT INTO field_outings
-            (user_id, title, location_name, latitude, longitude, started_at, notes, planned_species_json, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+            (user_id, title, location_name, latitude, longitude, started_at, notes, planned_species_json, planned_stops_json, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
       args: [
         req.user.id,
         String(title).trim(),
@@ -203,7 +206,8 @@ router.post('/', requireAuth, async (req, res) => {
         longitude === '' || longitude == null ? null : Number(longitude),
         started_at || new Date().toISOString(),
         notes ? String(notes).trim() : null,
-        JSON.stringify(Array.isArray(planned_species) ? planned_species.slice(0, 50) : [])
+        JSON.stringify(Array.isArray(planned_species) ? planned_species.slice(0, 50) : []),
+        JSON.stringify(Array.isArray(planned_stops) ? planned_stops.slice(0, 50) : [])
       ]
     })
     res.status(201).json(await getOuting(result.lastInsertRowid, req.user.id))
@@ -245,6 +249,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
       ['location_name', req.body.location_name],
       ['latitude', req.body.latitude],
       ['longitude', req.body.longitude],
+      ['planned_stops_json', req.body.planned_stops ? JSON.stringify(req.body.planned_stops) : undefined],
       ['notes', req.body.notes],
       ['status', req.body.status],
       ['ended_at', req.body.ended_at]

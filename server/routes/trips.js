@@ -164,7 +164,8 @@ router.post('/:id/start', requireAuth, async (req, res) => {
         firstStop.longitude ?? null,
         new Date().toISOString(),
         plan.notes || null,
-        JSON.stringify(plannedSpecies)
+        JSON.stringify(plannedSpecies),
+        JSON.stringify(itinerary)
       ]
     })
 
