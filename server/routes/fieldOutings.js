@@ -221,6 +221,8 @@ router.patch('/:id', requireAuth, async (req, res) => {
     for (const [column, value] of [
       ['title', req.body.title],
       ['location_name', req.body.location_name],
+      ['latitude', req.body.latitude],
+      ['longitude', req.body.longitude],
       ['notes', req.body.notes],
       ['status', req.body.status],
       ['ended_at', req.body.ended_at]

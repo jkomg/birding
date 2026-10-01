@@ -22,6 +22,9 @@ export default function OutingCapture() {
   const [suggestions, setSuggestions] = useState(null)
   const [searching, setSearching] = useState(false)
   const [observation, setObservation] = useState({ common_name: '', count: 'X', evidence: 'seen', notes: '' })
+  const [photoFile, setPhotoFile] = useState(null)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [offlineStatus, setOfflineStatus] = useState('')
 
   useEffect(() => {
     if (isNew) return
@@ -30,6 +33,31 @@ export default function OutingCapture() {
       .then(setOuting)
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
+  }, [id, isNew])
+
+  useEffect(() => {
+    if (isNew) return
+    const storageKey = `field-notes-pending-${id}`
+    async function syncPending() {
+      let queue = []
+      try { queue = JSON.parse(window.localStorage.getItem(storageKey) || '[]') } catch { queue = [] }
+      if (!queue.length) return
+      const remaining = []
+      for (const item of queue) {
+        try {
+          const response = await fetch('/api/sightings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item.payload) })
+          if (!response.ok) throw new Error('Sync failed')
+          const data = await response.json()
+          setOuting(current => ({ ...current, observations: (current.observations || []).map(observation => observation.client_id === item.client_id ? data : observation) }))
+        } catch { remaining.push(item) }
+      }
+      window.localStorage.setItem(storageKey, JSON.stringify(remaining))
+      setPendingCount(remaining.length)
+      setOfflineStatus(remaining.length ? `${remaining.length} sighting${remaining.length === 1 ? '' : 's'} waiting to sync` : 'Offline sightings synced')
+    }
+    syncPending()
+    window.addEventListener('online', syncPending)
+    return () => window.removeEventListener('online', syncPending)
   }, [id, isNew])
 
   function locate() {
@@ -101,17 +129,57 @@ export default function OutingCapture() {
     event.preventDefault()
     if (!observation.common_name.trim() || !outing) return
     setSaving(true); setError('')
+    const notes = [observation.evidence === 'heard' ? 'Heard only.' : '', observation.notes.trim()].filter(Boolean).join(' ')
+    const payload = { outing_id: outing.id, common_name: observation.common_name, count: observation.count || 'X', location_name: outing.location_name, latitude: outing.latitude, longitude: outing.longitude, observed_date: today(), observed_time: now(), observation_details: notes }
+    const clientId = `offline-${Date.now()}-${Math.random().toString(36).slice(2)}`
     try {
-      const notes = [observation.evidence === 'heard' ? 'Heard only.' : '', observation.notes.trim()].filter(Boolean).join(' ')
       const response = await fetch('/api/sightings', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ outing_id: outing.id, common_name: observation.common_name, count: observation.count || 'X', location_name: outing.location_name, latitude: outing.latitude, longitude: outing.longitude, observed_date: today(), observed_time: now(), observation_details: notes })
+        body: JSON.stringify(payload)
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Could not save observation')
       setOuting(current => ({ ...current, observations: [data, ...(current.observations || [])], observation_count: Number(current.observation_count || 0) + 1, species_count: new Set([...(current.observations || []).map(item => item.species_code || item.common_name), data.species_code || data.common_name]).size }))
+      if (photoFile) {
+        try {
+          const photoData = new FormData()
+          photoData.append('photo', photoFile)
+          photoData.append('sighting_id', data.id)
+          photoData.append('species_code', data.species_code || '')
+          const photoResponse = await fetch('/api/photos', { method: 'POST', credentials: 'include', body: photoData })
+          if (!photoResponse.ok) setOfflineStatus('Sighting saved, but the photo could not be uploaded')
+        } catch { setOfflineStatus('Sighting saved; photo will need to be added when online') }
+      }
       setObservation({ common_name: '', count: 'X', evidence: 'seen', notes: '' })
-    } catch (err) { setError(err.message) } finally { setSaving(false) }
+      setPhotoFile(null)
+    } catch {
+      const storageKey = `field-notes-pending-${outing.id}`
+      let queue = []
+      try { queue = JSON.parse(window.localStorage.getItem(storageKey) || '[]') } catch { queue = [] }
+      queue.push({ client_id: clientId, payload })
+      window.localStorage.setItem(storageKey, JSON.stringify(queue))
+      const localObservation = { ...payload, id: clientId, client_id: clientId, pending: true }
+      setOuting(current => ({ ...current, observations: [localObservation, ...(current.observations || [])], observation_count: Number(current.observation_count || 0) + 1, species_count: new Set([...(current.observations || []).map(item => item.species_code || item.common_name), payload.common_name]).size }))
+      setPendingCount(queue.length)
+      setOfflineStatus('Saved on this phone — will sync when you’re back online')
+      setObservation({ common_name: '', count: 'X', evidence: 'seen', notes: '' })
+      setPhotoFile(null)
+    } finally { setSaving(false) }
+  }
+
+  function refreshLocation() {
+    if (!navigator.geolocation) return setOfflineStatus('Location is not available in this browser')
+    setOfflineStatus('Refreshing your position…')
+    navigator.geolocation.getCurrentPosition(async position => {
+      const latitude = Number(position.coords.latitude.toFixed(6))
+      const longitude = Number(position.coords.longitude.toFixed(6))
+      setOuting(current => ({ ...current, latitude, longitude }))
+      try {
+        const response = await fetch(`/api/field-outings/${outing.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ latitude, longitude }) })
+        if (!response.ok) throw new Error('Could not save location')
+        setOfflineStatus('Position updated')
+      } catch { setOfflineStatus('Position updated on this phone') }
+    }, () => setOfflineStatus('Could not get your position'), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 })
   }
 
   async function finishOuting() {
@@ -151,10 +219,10 @@ export default function OutingCapture() {
   const complete = outing.status === 'completed'
   return (
     <div className="capture-page">
-      <div className="capture-header"><div><Link className="back-link" to="/">← Today</Link><div className="eyebrow">{complete ? 'Outing complete' : 'Field mode'}</div><h1>{outing.title}</h1><p>{outing.location_name || 'Location not recorded'} · Started {formatDate(outing.started_at)}</p></div>{!complete && <button type="button" className="secondary" onClick={finishOuting} disabled={saving}>Finish outing</button>}</div>
+      <div className="capture-header"><div><Link className="back-link" to="/">← Today</Link><div className="eyebrow">{complete ? 'Outing complete' : 'Field mode'}</div><h1>{outing.title}</h1><p>{outing.location_name || 'Location not recorded'} · Started {formatDate(outing.started_at)}</p></div>{!complete && <div className="capture-header-actions"><button type="button" className="secondary" onClick={refreshLocation}>Update GPS</button><button type="button" className="secondary" onClick={finishOuting} disabled={saving}>Finish outing</button></div>}</div>
       <div className="capture-stats"><div><strong>{outing.species_count}</strong><span>species</span></div><div><strong>{outing.observation_count}</strong><span>records</span></div><div><strong>{complete ? 'Done' : 'Active'}</strong><span>status</span></div></div>
       {outing.planned_species?.length > 0 && <section className="card target-card"><div className="section-heading"><div><div className="eyebrow">Your field list</div><h2>Look for these</h2></div><span className="target-count">{outing.planned_species.filter(target => outing.observations?.some(item => (item.species_code && item.species_code === target.species_code) || item.common_name?.toLowerCase() === target.common_name?.toLowerCase())).length}/{outing.planned_species.length}</span></div><div className="target-list">{outing.planned_species.map(target => { const logged = outing.observations?.some(item => (item.species_code && item.species_code === target.species_code) || item.common_name?.toLowerCase() === target.common_name?.toLowerCase()); return <button type="button" className={`target-row ${logged ? 'logged' : ''}`} key={target.species_code || target.common_name} onClick={() => !complete && setObservation(current => ({ ...current, common_name: target.common_name }))}><span>{logged ? '✓' : '○'}</span><strong>{target.common_name}</strong><small>{logged ? 'logged' : 'tap to log'}</small></button> })}</div></section>}
-      {!complete && <form className="card observation-card" onSubmit={addObservation}><div className="eyebrow">Quick log</div><h2>What did you notice?</h2><div className="capture-species-row"><input autoFocus placeholder="Species name" value={observation.common_name} onChange={event => setObservation({ ...observation, common_name: event.target.value })} /><input className="count-input" inputMode="numeric" aria-label="Count" value={observation.count} onChange={event => setObservation({ ...observation, count: event.target.value })} /></div><div className="segmented-control"><button type="button" className={observation.evidence === 'seen' ? 'selected' : ''} onClick={() => setObservation({ ...observation, evidence: 'seen' })}>Seen</button><button type="button" className={observation.evidence === 'heard' ? 'selected' : ''} onClick={() => setObservation({ ...observation, evidence: 'heard' })}>Heard</button></div><input placeholder="Optional note" value={observation.notes} onChange={event => setObservation({ ...observation, notes: event.target.value })} /><button type="submit" disabled={saving || !observation.common_name.trim()}>{saving ? 'Saving...' : 'Add bird'}</button>{error && <div className="notice error">{error}</div>}</form>}
+      {!complete && <form className="card observation-card" onSubmit={addObservation}><div className="eyebrow">Quick log</div><h2>What did you notice?</h2><div className="capture-species-row"><input autoFocus placeholder="Species name" value={observation.common_name} onChange={event => setObservation({ ...observation, common_name: event.target.value })} /><input className="count-input" inputMode="numeric" aria-label="Count" value={observation.count} onChange={event => setObservation({ ...observation, count: event.target.value })} /></div><div className="segmented-control"><button type="button" className={observation.evidence === 'seen' ? 'selected' : ''} onClick={() => setObservation({ ...observation, evidence: 'seen' })}>Seen</button><button type="button" className={observation.evidence === 'heard' ? 'selected' : ''} onClick={() => setObservation({ ...observation, evidence: 'heard' })}>Heard</button></div><input placeholder="Optional note" value={observation.notes} onChange={event => setObservation({ ...observation, notes: event.target.value })} /><label className="photo-capture"><span>▧ {photoFile ? photoFile.name : 'Add a photo'}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={event => setPhotoFile(event.target.files?.[0] || null)} /></label><button type="submit" disabled={saving || !observation.common_name.trim()}>{saving ? 'Saving...' : 'Add bird'}</button>{offlineStatus && <div className="field-status" aria-live="polite">{pendingCount > 0 ? `◌ ${pendingCount} pending · ` : '✓ '}{offlineStatus}</div>}{error && <div className="notice error">{error}</div>}</form>}
       <section className="card capture-list"><div className="section-heading"><div><div className="eyebrow">Field notes</div><h2>{complete ? 'Outing review' : 'Logged so far'}</h2></div>{complete && <Link className="text-link" to="/timeline">All outings <span>→</span></Link>}</div>{outing.observations?.length ? <div className="sighting-list">{outing.observations.map(item => <div className="sighting-row capture-observation" key={item.id}><span className="sighting-mark">{item.observation_details?.includes('Heard only') ? '◌' : '✦'}</span><span className="sighting-main"><strong>{item.common_name}</strong><span>{item.observation_details || 'Seen'} · {item.count}</span></span><span className="sighting-meta"><strong>{item.observed_time || ''}</strong></span></div>)}</div> : <div className="empty-inline"><span className="empty-inline-icon">◌</span><div><strong>No birds logged yet.</strong><p>Start with the first thing you notice.</p></div></div>}</section>
     </div>
   )
