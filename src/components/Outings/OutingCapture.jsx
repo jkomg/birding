@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -28,6 +28,8 @@ export default function OutingCapture() {
   const [offlineStatus, setOfflineStatus] = useState('')
   const [stopSuggestions, setStopSuggestions] = useState({})
   const [photos, setPhotos] = useState([])
+  const routeMapRef = useRef(null)
+  const [shareMessage, setShareMessage] = useState('')
 
   useEffect(() => {
     if (isNew) return
@@ -45,6 +47,25 @@ export default function OutingCapture() {
       .then(setPhotos)
       .catch(() => setPhotos([]))
   }, [id, isNew])
+
+  useEffect(() => {
+    if (!outing || !routeMapRef.current || !window.L || !outing.planned_stops?.length) return
+    const stops = outing.planned_stops.filter(stop => Number.isFinite(Number(stop.latitude)) && Number.isFinite(Number(stop.longitude)))
+    if (!stops.length) return
+    const map = window.L.map(routeMapRef.current, { zoomControl: false, scrollWheelZoom: false })
+    window.L.control.zoom({ position: 'bottomright' }).addTo(map)
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map)
+    const points = stops.map(stop => [Number(stop.latitude), Number(stop.longitude)])
+    const bounds = window.L.latLngBounds(points)
+    window.L.polyline(points, { color: '#2d6a4f', weight: 4, opacity: .7, dashArray: '7 7' }).addTo(map)
+    stops.forEach((stop, index) => {
+      const marker = window.L.circleMarker([stop.latitude, stop.longitude], { radius: 9, fillColor: stop.visited ? '#52b788' : '#d97706', color: '#fff', weight: 2, fillOpacity: .95 }).addTo(map)
+      marker.bindTooltip(`${index + 1}. ${stop.location_name}`)
+    })
+    map.fitBounds(bounds.pad(.2))
+    window.setTimeout(() => map.invalidateSize(), 100)
+    return () => map.remove()
+  }, [outing?.id, JSON.stringify(outing?.planned_stops)])
 
   useEffect(() => {
     const query = observation.common_name.trim()
@@ -233,6 +254,15 @@ export default function OutingCapture() {
     }
   }
 
+  async function shareRecap() {
+    const species = (outing.observations || []).map(item => item.common_name).filter(Boolean).filter((name, index, all) => all.indexOf(name) === index)
+    const text = `${outing.title}\n${outing.location_name || 'Birding outing'}\n\n${outing.species_count} species · ${outing.observation_count} records${durationMinutes !== null ? ` · ${durationMinutes} minutes in the field` : ''}\n\n${species.length ? species.join(', ') : 'No species logged yet.'}`
+    try {
+      if (navigator.share) await navigator.share({ title: `${outing.title} · Field Notes`, text })
+      else { await navigator.clipboard.writeText(text); setShareMessage('Recap copied to clipboard') }
+    } catch (err) { if (err.name !== 'AbortError') setShareMessage('Could not share recap') }
+  }
+
   async function loadStopSuggestions(stop) {
     if (stopSuggestions[stop.loc_key]) {
       setStopSuggestions(current => ({ ...current, [stop.loc_key]: null }))
@@ -296,6 +326,8 @@ export default function OutingCapture() {
     <div className="capture-page">
       <div className="capture-header"><div><Link className="back-link" to="/">← Today</Link><div className="eyebrow">{complete ? 'Outing complete' : 'Field mode'}</div><h1>{outing.title}</h1><p>{outing.location_name || 'Location not recorded'} · Started {formatDate(outing.started_at)}</p></div>{!complete && <div className="capture-header-actions"><button type="button" className="secondary" onClick={refreshLocation}>Update GPS</button><button type="button" className="secondary" onClick={finishOuting} disabled={saving}>Finish outing</button></div>}</div>
       <div className="capture-stats"><div><strong>{outing.species_count}</strong><span>species</span></div><div><strong>{outing.observation_count}</strong><span>records</span></div><div><strong>{complete ? 'Done' : 'Active'}</strong><span>status</span></div></div>
+      {complete && <div className="recap-share-row"><button type="button" onClick={shareRecap}>Share recap ↗</button>{shareMessage && <span>{shareMessage}</span>}</div>}
+      {outing.planned_stops?.some(stop => Number.isFinite(Number(stop.latitude)) && Number.isFinite(Number(stop.longitude))) && <div className="card route-map-card"><div className="eyebrow">Route map</div><div className="route-map" ref={routeMapRef} /></div>}
       {outing.planned_stops?.length > 0 && <section className="card route-card"><div className="section-heading"><div><div className="eyebrow">Day route</div><h2>Stops</h2></div><span className="target-count">{outing.planned_stops.filter(stop => stop.visited).length}/{outing.planned_stops.length}</span></div><div className="route-stop-list">{outing.planned_stops.map((stop, index) => { const result = stopSuggestions[stop.loc_key]; return <div className={`route-stop ${stop.visited ? 'visited' : ''}`} key={stop.loc_key || `${stop.location_name}-${index}`}><div className="route-stop-main"><button type="button" className="route-stop-toggle" onClick={() => toggleStop(stop)}><span>{stop.visited ? '✓' : index + 1}</span><strong>{stop.location_name}</strong><small>{stop.visited ? 'Visited' : index === 0 ? 'First stop' : 'Up next'}</small></button><div className="route-stop-actions"><button type="button" className="secondary route-birds-button" onClick={() => loadStopSuggestions(stop)} disabled={!stop.latitude || !stop.longitude}>{result?.loading ? 'Loading…' : result ? 'Hide birds' : 'Birds here'}</button><button type="button" className="secondary route-nav-button" onClick={() => openNavigation(stop)}>Navigate ↗</button></div></div>{result?.error && <div className="route-stop-error">{result.error}</div>}{result?.species?.length > 0 && <div className="stop-species-list"><div className="stop-species-heading">Recent here <small>Tap + to add a target</small></div>{result.species.map(species => <div className="stop-species-row" key={species.species_code || species.common_name}><div><strong>{species.common_name}</strong>{species.priority === 'new' && <span className="new-bird-badge">New for us</span>}<small>{species.sightings} reports</small></div><button type="button" onClick={() => addStopTarget(species)} disabled={outing.planned_species?.some(item => item.species_code === species.species_code)}>+</button></div>)}</div>}</div> })}</div></section>}
       {outing.planned_species?.length > 0 && <section className="card target-card"><div className="section-heading"><div><div className="eyebrow">Your field list</div><h2>Look for these</h2></div><span className="target-count">{outing.planned_species.filter(target => outing.observations?.some(item => (item.species_code && item.species_code === target.species_code) || item.common_name?.toLowerCase() === target.common_name?.toLowerCase())).length}/{outing.planned_species.length}</span></div><div className="target-list">{outing.planned_species.map(target => { const logged = outing.observations?.some(item => (item.species_code && item.species_code === target.species_code) || item.common_name?.toLowerCase() === target.common_name?.toLowerCase()); return <button type="button" className={`target-row ${logged ? 'logged' : ''}`} key={target.species_code || target.common_name} onClick={() => !complete && setObservation(current => ({ ...current, common_name: target.common_name }))}><span>{logged ? '✓' : '○'}</span><strong>{target.common_name}</strong><small>{logged ? 'logged' : 'tap to log'}</small></button> })}</div></section>}
       {complete && <section className="card outing-recap"><div className="eyebrow">Outing recap</div><h2>A good day in the field.</h2><div className="recap-stats"><div><strong>{outing.species_count}</strong><span>species</span></div><div><strong>{outing.observation_count}</strong><span>records</span></div><div><strong>{targetsFound.length}/{outing.planned_species?.length || 0}</strong><span>targets</span></div>{durationMinutes !== null && <div><strong>{durationMinutes >= 60 ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m` : `${durationMinutes}m`}</strong><span>in the field</span></div>}</div>{outing.planned_species?.length > 0 && <p className="recap-message">{targetsFound.length === outing.planned_species.length ? 'You found every target on the list.' : `${outing.planned_species.length - targetsFound.length} target${outing.planned_species.length - targetsFound.length === 1 ? '' : 's'} left for next time.`}</p>}</section>}

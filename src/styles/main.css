@@ -190,6 +190,10 @@ textarea { resize: vertical; }
 .hotspot-row small { color: var(--text-muted); font-size: .72rem; }
 .target-card { margin-top: 1rem; }
 .route-card { margin-top: 1rem; }
+.route-map-card { margin-top: 1rem; padding: 1rem; }
+.route-map { height: 260px; margin-top: .5rem; overflow: hidden; border-radius: 10px; border: 1px solid var(--border); }
+.recap-share-row { display: flex; align-items: center; gap: .6rem; margin: 1rem 0 .25rem; }
+.recap-share-row span { color: var(--green-dark); font-size: .8rem; }
 .route-stop-list { display: grid; gap: .45rem; }
 .route-stop { display: flex; align-items: center; gap: .5rem; padding: .55rem; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
 .route-stop.visited { background: #eef6ee; }
