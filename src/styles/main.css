@@ -189,6 +189,13 @@ textarea { resize: vertical; }
 .target-row strong { font-size: .82rem; }
 .target-row small { color: var(--text-muted); font-size: .7rem; }
 .target-row.logged { background: #eef6ee; }
+.outing-recap { margin: 1rem 0; padding: 1.35rem; background: #f7fbf7; border-color: #cfe0cf; }
+.outing-recap h2 { margin: .3rem 0 1rem; font: 400 1.45rem Georgia, serif; }
+.recap-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
+.recap-stats div { display: grid; gap: .1rem; padding: .7rem; border-radius: 9px; background: #fff; }
+.recap-stats strong { color: var(--green-dark); font-size: 1.2rem; }
+.recap-stats span { color: var(--text-muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; }
+.recap-message { margin: 1rem 0 0; color: var(--green-dark); font-size: .85rem; }
 .photo-capture { display: flex; align-items: center; justify-content: center; min-height: 2.6rem; padding: .55rem .75rem; border: 1px dashed #abc5ad; border-radius: 8px; color: var(--green-dark); background: rgba(255,255,255,.55); font-size: .8rem; cursor: pointer; }
 .photo-capture input { display: none; }
 .field-status { color: var(--green-dark); font-size: .78rem; }
@@ -216,6 +223,7 @@ textarea { resize: vertical; }
   .place-search-row button { width: 100%; }
   .place-search-row span { text-align: center; }
   .likely-species-grid, .target-list { grid-template-columns: 1fr; }
+  .recap-stats { grid-template-columns: repeat(2, 1fr); }
   .field-forecast { grid-template-columns: repeat(2, 1fr); gap: .65rem .4rem; }
   .outing-plan-results { padding: .8rem; }
 }
