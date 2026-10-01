@@ -224,6 +224,12 @@ textarea { resize: vertical; }
 .recap-stats strong { color: var(--green-dark); font-size: 1.2rem; }
 .recap-stats span { color: var(--text-muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; }
 .recap-message { margin: 1rem 0 0; color: var(--green-dark); font-size: .85rem; }
+.outing-gallery { margin: 1rem 0; padding: 1.35rem; }
+.outing-gallery h2 { margin: .3rem 0 1rem; font: 400 1.45rem Georgia, serif; }
+.outing-photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+.outing-photo-grid a { overflow: hidden; border-radius: 10px; color: var(--text); background: var(--bg); text-decoration: none; }
+.outing-photo-grid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+.outing-photo-grid span { display: block; overflow: hidden; padding: .4rem .5rem; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .photo-capture { display: flex; align-items: center; justify-content: center; min-height: 2.6rem; padding: .55rem .75rem; border: 1px dashed #abc5ad; border-radius: 8px; color: var(--green-dark); background: rgba(255,255,255,.55); font-size: .8rem; cursor: pointer; }
 .photo-capture input { display: none; }
 .field-status { color: var(--green-dark); font-size: .78rem; }
@@ -257,6 +263,7 @@ textarea { resize: vertical; }
   .place-search-row span { text-align: center; }
   .likely-species-grid, .target-list { grid-template-columns: 1fr; }
   .recap-stats { grid-template-columns: repeat(2, 1fr); }
+  .outing-photo-grid { grid-template-columns: repeat(2, 1fr); }
   .field-forecast { grid-template-columns: repeat(2, 1fr); gap: .65rem .4rem; }
   .outing-plan-results { padding: .8rem; }
 }

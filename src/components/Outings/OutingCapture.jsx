@@ -27,6 +27,7 @@ export default function OutingCapture() {
   const [pendingCount, setPendingCount] = useState(0)
   const [offlineStatus, setOfflineStatus] = useState('')
   const [stopSuggestions, setStopSuggestions] = useState({})
+  const [photos, setPhotos] = useState([])
 
   useEffect(() => {
     if (isNew) return
@@ -35,6 +36,14 @@ export default function OutingCapture() {
       .then(setOuting)
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
+  }, [id, isNew])
+
+  useEffect(() => {
+    if (isNew) return
+    fetch(`/api/photos/outing/${id}`, { credentials: 'include' })
+      .then(response => response.ok ? response.json() : [])
+      .then(setPhotos)
+      .catch(() => setPhotos([]))
   }, [id, isNew])
 
   useEffect(() => {
@@ -162,6 +171,10 @@ export default function OutingCapture() {
           photoData.append('species_code', data.species_code || '')
           const photoResponse = await fetch('/api/photos', { method: 'POST', credentials: 'include', body: photoData })
           if (!photoResponse.ok) setOfflineStatus('Sighting saved, but the photo could not be uploaded')
+          else {
+            const photo = await photoResponse.json()
+            setPhotos(current => [photo, ...current])
+          }
         } catch { setOfflineStatus('Sighting saved; photo will need to be added when online') }
       }
       setObservation({ common_name: '', scientific_name: '', species_code: '', count: 'X', evidence: 'seen', notes: '' })
@@ -286,6 +299,7 @@ export default function OutingCapture() {
       {outing.planned_stops?.length > 0 && <section className="card route-card"><div className="section-heading"><div><div className="eyebrow">Day route</div><h2>Stops</h2></div><span className="target-count">{outing.planned_stops.filter(stop => stop.visited).length}/{outing.planned_stops.length}</span></div><div className="route-stop-list">{outing.planned_stops.map((stop, index) => { const result = stopSuggestions[stop.loc_key]; return <div className={`route-stop ${stop.visited ? 'visited' : ''}`} key={stop.loc_key || `${stop.location_name}-${index}`}><div className="route-stop-main"><button type="button" className="route-stop-toggle" onClick={() => toggleStop(stop)}><span>{stop.visited ? '✓' : index + 1}</span><strong>{stop.location_name}</strong><small>{stop.visited ? 'Visited' : index === 0 ? 'First stop' : 'Up next'}</small></button><div className="route-stop-actions"><button type="button" className="secondary route-birds-button" onClick={() => loadStopSuggestions(stop)} disabled={!stop.latitude || !stop.longitude}>{result?.loading ? 'Loading…' : result ? 'Hide birds' : 'Birds here'}</button><button type="button" className="secondary route-nav-button" onClick={() => openNavigation(stop)}>Navigate ↗</button></div></div>{result?.error && <div className="route-stop-error">{result.error}</div>}{result?.species?.length > 0 && <div className="stop-species-list"><div className="stop-species-heading">Recent here <small>Tap + to add a target</small></div>{result.species.map(species => <div className="stop-species-row" key={species.species_code || species.common_name}><div><strong>{species.common_name}</strong>{species.priority === 'new' && <span className="new-bird-badge">New for us</span>}<small>{species.sightings} reports</small></div><button type="button" onClick={() => addStopTarget(species)} disabled={outing.planned_species?.some(item => item.species_code === species.species_code)}>+</button></div>)}</div>}</div> })}</div></section>}
       {outing.planned_species?.length > 0 && <section className="card target-card"><div className="section-heading"><div><div className="eyebrow">Your field list</div><h2>Look for these</h2></div><span className="target-count">{outing.planned_species.filter(target => outing.observations?.some(item => (item.species_code && item.species_code === target.species_code) || item.common_name?.toLowerCase() === target.common_name?.toLowerCase())).length}/{outing.planned_species.length}</span></div><div className="target-list">{outing.planned_species.map(target => { const logged = outing.observations?.some(item => (item.species_code && item.species_code === target.species_code) || item.common_name?.toLowerCase() === target.common_name?.toLowerCase()); return <button type="button" className={`target-row ${logged ? 'logged' : ''}`} key={target.species_code || target.common_name} onClick={() => !complete && setObservation(current => ({ ...current, common_name: target.common_name }))}><span>{logged ? '✓' : '○'}</span><strong>{target.common_name}</strong><small>{logged ? 'logged' : 'tap to log'}</small></button> })}</div></section>}
       {complete && <section className="card outing-recap"><div className="eyebrow">Outing recap</div><h2>A good day in the field.</h2><div className="recap-stats"><div><strong>{outing.species_count}</strong><span>species</span></div><div><strong>{outing.observation_count}</strong><span>records</span></div><div><strong>{targetsFound.length}/{outing.planned_species?.length || 0}</strong><span>targets</span></div>{durationMinutes !== null && <div><strong>{durationMinutes >= 60 ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m` : `${durationMinutes}m`}</strong><span>in the field</span></div>}</div>{outing.planned_species?.length > 0 && <p className="recap-message">{targetsFound.length === outing.planned_species.length ? 'You found every target on the list.' : `${outing.planned_species.length - targetsFound.length} target${outing.planned_species.length - targetsFound.length === 1 ? '' : 's'} left for next time.`}</p>}</section>}
+      {photos.length > 0 && <section className="card outing-gallery"><div className="eyebrow">Field gallery</div><h2>Photos from this outing</h2><div className="outing-photo-grid">{photos.map(photo => <a href={photo.public_url} target="_blank" rel="noreferrer" key={photo.id || photo.public_url}><img src={photo.public_url} alt={photo.common_name || 'Birding outing photo'} /><span>{photo.common_name || 'Field photo'}</span></a>)}</div></section>}
       {!complete && <form className="card observation-card" onSubmit={addObservation}>
         <div className="eyebrow">Quick log</div><h2>What did you notice?</h2>
         <div className="capture-species-row"><div className="species-entry"><input autoFocus placeholder="Species name" value={observation.common_name} onChange={event => setObservation({ ...observation, common_name: event.target.value, species_code: '', scientific_name: '' })} />{speciesMatches.length > 0 && <div className="species-autocomplete">{speciesMatches.map(species => <button type="button" key={species.species_code || species.common_name} onClick={() => chooseSpecies(species)}><strong>{species.common_name}</strong><small>{species.scientific_name}</small></button>)}</div>}</div><input className="count-input" inputMode="numeric" aria-label="Count" value={observation.count} onChange={event => setObservation({ ...observation, count: event.target.value })} /></div>

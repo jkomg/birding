@@ -26,16 +26,28 @@ router.post('/', requireAuth, upload.single('photo'), async (req, res) => {
 
     const { gcs_path, public_url } = await uploadPhoto(req.file.buffer, filename, req.file.mimetype)
 
-    await db.execute({
+    const inserted = await db.execute({
       sql: `INSERT INTO photos (user_id, sighting_id, species_code, gcs_path, public_url, caption, taken_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
       args: [req.user.id, sighting_id || null, species_code || null, gcs_path, public_url, caption || null, taken_at || null]
     })
 
-    res.json({ gcs_path, public_url })
+    res.json({ id: Number(inserted.lastInsertRowid), sighting_id: sighting_id || null, species_code: species_code || null, gcs_path, public_url })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
+})
+
+router.get('/outing/:outingId', requireAuth, async (req, res) => {
+  try {
+    const result = await db.execute({
+      sql: `SELECT p.*, s.common_name, s.observed_date FROM photos p
+            JOIN sightings s ON s.id=p.sighting_id
+            WHERE s.outing_id=? AND s.user_id=? ORDER BY p.uploaded_at DESC`,
+      args: [req.params.outingId, req.user.id]
+    })
+    res.json(result.rows)
+  } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 router.get('/species/:code', requireAuth, async (req, res) => {

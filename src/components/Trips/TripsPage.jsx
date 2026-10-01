@@ -35,7 +35,7 @@ export default function TripsPage() {
   const scopeLabel = getScopeLabel(filter, user, users)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const editablePlans = plans.filter(plan => plan.status !== 'done')
+  const editablePlans = plans.filter(plan => !['done', 'archived'].includes(plan.status))
   const currentPlan = plans.find(plan => plan.id === selectedPlanId) ?? null
   const currentPlanLabel = currentPlan ? `${currentPlan.title} · ${currentPlan.status}` : 'New draft plan'
 
@@ -359,6 +359,23 @@ export default function TripsPage() {
     navigate(`/outing/${data.outing_id}`)
   }
 
+  async function duplicatePlan(plan) {
+    const response = await fetch(`/api/trips/${plan.id}/duplicate`, { method: 'POST', credentials: 'include' })
+    const data = await response.json()
+    if (!response.ok) return setError(data.error || 'Could not duplicate plan')
+    await loadPlans()
+    startEditing(data)
+    setMessage('Plan duplicated. Update the date or stops as needed.')
+  }
+
+  async function archivePlan(plan) {
+    if (!window.confirm(`Archive “${plan.title}”? You can no longer add it to new outings.`)) return
+    const response = await fetch(`/api/trips/${plan.id}`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'archived' }) })
+    if (!response.ok) return setError('Could not archive plan')
+    await loadPlans()
+    if (selectedPlanId === plan.id) resetForm()
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -394,10 +411,11 @@ export default function TripsPage() {
               </div>
               <div className="form-group">
                 <label>Status</label>
-                <select value={form.status} onChange={e => setForm(prev => ({ ...prev, status: e.target.value }))}>
+                  <select value={form.status} onChange={e => setForm(prev => ({ ...prev, status: e.target.value }))}>
                   <option value="draft">Draft</option>
                   <option value="planned">Planned</option>
                   <option value="done">Done</option>
+                  <option value="archived">Archived</option>
                 </select>
               </div>
             </div>
@@ -566,8 +584,10 @@ export default function TripsPage() {
                     <div className="trip-plan-meta">{Array.isArray(plan.itinerary) ? plan.itinerary.length : 0} stops</div>
                   </div>
                   <div className="trip-plan-card-actions">
-                    <button type="button" onClick={() => startPlan(plan)}>Start outing</button>
+                    <button type="button" onClick={() => startPlan(plan)} disabled={['done', 'archived'].includes(plan.status)}>Start outing</button>
+                    <button type="button" className="secondary" onClick={() => duplicatePlan(plan)}>Duplicate</button>
                     <button type="button" className="secondary" onClick={() => startEditing(plan)}>Current</button>
+                    <button type="button" className="danger-button" onClick={() => archivePlan(plan)}>Archive</button>
                     <button type="button" className="secondary" onClick={() => deletePlan(plan.id)}>Delete</button>
                   </div>
                 </div>

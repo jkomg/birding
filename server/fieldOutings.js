@@ -2,6 +2,7 @@ export const fieldOutingSchema = [
   `CREATE TABLE IF NOT EXISTS field_outings (
     id            INTEGER PRIMARY KEY,
     user_id       INTEGER NOT NULL REFERENCES users(id),
+    plan_id       INTEGER,
     title         TEXT NOT NULL,
     location_name TEXT,
     latitude      REAL,
@@ -25,6 +26,9 @@ export async function ensureFieldOutingSchema(db) {
   const columns = await db.execute('PRAGMA table_info(field_outings)')
   if (!columns.rows.some(column => column.name === 'planned_species_json')) {
     await db.execute('ALTER TABLE field_outings ADD COLUMN planned_species_json TEXT')
+  }
+  if (!columns.rows.some(column => column.name === 'plan_id')) {
+    await db.execute('ALTER TABLE field_outings ADD COLUMN plan_id INTEGER')
   }
   if (!columns.rows.some(column => column.name === 'planned_stops_json')) {
     await db.execute('ALTER TABLE field_outings ADD COLUMN planned_stops_json TEXT')

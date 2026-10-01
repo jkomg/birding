@@ -154,10 +154,11 @@ router.post('/:id/start', requireAuth, async (req, res) => {
 
     const result = await db.execute({
       sql: `INSERT INTO field_outings
-            (user_id, title, location_name, latitude, longitude, started_at, notes, planned_species_json, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+            (user_id, plan_id, title, location_name, latitude, longitude, started_at, notes, planned_species_json, planned_stops_json, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
       args: [
         req.user.id,
+        req.params.id,
         plan.title,
         firstStop.location_name || plan.target_area || null,
         firstStop.latitude ?? null,
@@ -174,6 +175,21 @@ router.post('/:id/start', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
+})
+
+router.post('/:id/duplicate', requireAuth, async (req, res) => {
+  try {
+    const source = await db.execute({ sql: 'SELECT * FROM trip_plans WHERE id=? AND user_id=?', args: [req.params.id, req.user.id] })
+    const plan = source.rows[0]
+    if (!plan) return res.status(404).json({ error: 'Trip plan not found' })
+    const result = await db.execute({
+      sql: `INSERT INTO trip_plans (user_id, title, trip_date, start_time, end_time, target_species, target_area, notes, itinerary_json, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')`,
+      args: [req.user.id, `${plan.title} (copy)`, plan.trip_date, plan.start_time, plan.end_time, plan.target_species, plan.target_area, plan.notes, plan.itinerary_json]
+    })
+    const created = await db.execute({ sql: 'SELECT * FROM trip_plans WHERE id=?', args: [result.lastInsertRowid] })
+    res.status(201).json(normalizePlan(created.rows[0]))
+  } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 router.put('/:id', requireAuth, async (req, res) => {

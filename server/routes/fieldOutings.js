@@ -216,15 +216,16 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { title, location_name, latitude, longitude, started_at, notes, planned_species, planned_stops } = req.body || {}
+    const { title, location_name, latitude, longitude, started_at, notes, planned_species, planned_stops, plan_id } = req.body || {}
     if (!String(title || '').trim()) return res.status(400).json({ error: 'Outing name is required' })
 
     const result = await db.execute({
       sql: `INSERT INTO field_outings
-            (user_id, title, location_name, latitude, longitude, started_at, notes, planned_species_json, planned_stops_json, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+            (user_id, plan_id, title, location_name, latitude, longitude, started_at, notes, planned_species_json, planned_stops_json, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
       args: [
         req.user.id,
+        plan_id || null,
         String(title).trim(),
         location_name ? String(location_name).trim() : null,
         latitude === '' || latitude == null ? null : Number(latitude),
@@ -288,6 +289,10 @@ router.patch('/:id', requireAuth, async (req, res) => {
     if (req.body.status === 'completed' && req.body.ended_at === undefined) {
       fields.push('ended_at=?')
       args.push(new Date().toISOString())
+      const plan = await db.execute({ sql: 'SELECT plan_id FROM field_outings WHERE id=? AND user_id=?', args: [req.params.id, req.user.id] })
+      if (plan.rows[0]?.plan_id) {
+        await db.execute({ sql: "UPDATE trip_plans SET status='done', updated_at=datetime('now') WHERE id=? AND user_id=?", args: [plan.rows[0].plan_id, req.user.id] })
+      }
     }
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' })
     fields.push("updated_at=datetime('now')")
