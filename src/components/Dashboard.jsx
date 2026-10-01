@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [refresh, setRefresh] = useState(0)
   const [activeOuting, setActiveOuting] = useState(null)
   const [plannedTrips, setPlannedTrips] = useState([])
+  const [showInstallHint, setShowInstallHint] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -35,6 +36,12 @@ export default function Dashboard() {
       .then(setActiveOuting)
       .catch(() => setActiveOuting(null))
   }, [refresh])
+
+  useEffect(() => {
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    const standalone = navigator.standalone || window.matchMedia('(display-mode: standalone)').matches
+    setShowInstallHint(isIOS && !standalone && window.localStorage.getItem('field-notes-install-dismissed') !== '1')
+  }, [])
 
   useEffect(() => {
     fetch('/api/trips', { credentials: 'include' })
@@ -67,6 +74,8 @@ export default function Dashboard() {
         </div>
         <div className="hero-bird" aria-hidden="true">✦</div>
       </section>
+
+      {showInstallHint && <section className="card install-hint"><div><div className="eyebrow">Make it feel like an app</div><h2>Add Field Notes to your Home Screen</h2><p>In Safari, tap Share → Add to Home Screen. It keeps Field Mode one tap away and gives you the best offline experience.</p></div><button type="button" className="secondary" onClick={() => { window.localStorage.setItem('field-notes-install-dismissed', '1'); setShowInstallHint(false) }}>Maybe later</button></section>}
 
       {activeOuting && <Link className="active-outing-banner" to={`/outing/${activeOuting.id}`}><span className="active-pulse" /><span><strong>Outing in progress: {activeOuting.title}</strong><small>{activeOuting.location_name || 'Location not set'} · {activeOuting.observation_count} records</small></span><span className="active-arrow">Continue →</span></Link>}
 

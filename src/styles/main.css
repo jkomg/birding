@@ -117,6 +117,9 @@ textarea { resize: vertical; }
 .active-arrow { margin-left: auto; color: var(--green); font-size: .78rem; font-weight: 700; white-space: nowrap; }
 .active-pulse { width: 10px; height: 10px; background: #d97745; border-radius: 50%; box-shadow: 0 0 0 5px rgba(217,119,69,.12); }
 .planned-trips-card { margin: 1.25rem 0; }
+.install-hint { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1rem 0; padding: 1rem 1.15rem; background: #eef6ee; border-color: #cfe0cf; }
+.install-hint h2 { margin: .25rem 0; font: 400 1.25rem Georgia, serif; }
+.install-hint p { max-width: 680px; color: var(--text-muted); font-size: .82rem; }
 .planned-trips-list { display: grid; gap: .55rem; }
 .planned-trip-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 0; border-top: 1px solid var(--border); }
 .planned-trip-row strong, .planned-trip-row small { display: block; }
@@ -1178,7 +1181,7 @@ main { max-width: 1240px; padding: 2.25rem 1.5rem 4rem; }
 .loading { display: grid; justify-items: center; gap: .8rem; padding: 5rem; }
 .error { color: #9a3e2f; background: #fbe9e4; }
 @media (max-width: 780px) {
-  main { padding: 1.25rem .9rem 5.5rem; }
+  main { padding: 1.25rem .9rem calc(5.5rem + env(safe-area-inset-bottom)); }
   nav { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; min-height: 62px; padding: 0 .35rem; justify-content: center; border-top: 1px solid rgba(255,255,255,.12); }
   nav .logo, .nav-account, nav .user-toggle { display: none; }
   .nav-links { width: 100%; height: 62px; justify-content: space-around; gap: 0; }
@@ -1192,4 +1195,6 @@ main { max-width: 1240px; padding: 2.25rem 1.5rem 4rem; }
   .sighting-meta { display: none; }
   .form-grid.two-up { grid-template-columns: 1fr; gap: 0; }
   .modal-card { padding: 1.2rem; }
+  .install-hint { align-items: stretch; flex-direction: column; }
+  .install-hint button { width: 100%; }
 }

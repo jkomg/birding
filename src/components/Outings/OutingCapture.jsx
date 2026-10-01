@@ -29,7 +29,11 @@ export default function OutingCapture() {
   const [stopSuggestions, setStopSuggestions] = useState({})
   const [photos, setPhotos] = useState([])
   const routeMapRef = useRef(null)
+  const routeMapInstanceRef = useRef(null)
+  const currentMarkerRef = useRef(null)
+  const wakeLockRef = useRef(null)
   const [shareMessage, setShareMessage] = useState('')
+  const [currentPosition, setCurrentPosition] = useState(null)
 
   useEffect(() => {
     if (isNew) return
@@ -53,6 +57,7 @@ export default function OutingCapture() {
     const stops = outing.planned_stops.filter(stop => Number.isFinite(Number(stop.latitude)) && Number.isFinite(Number(stop.longitude)))
     if (!stops.length) return
     const map = window.L.map(routeMapRef.current, { zoomControl: false, scrollWheelZoom: false })
+    routeMapInstanceRef.current = map
     window.L.control.zoom({ position: 'bottomright' }).addTo(map)
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map)
     const points = stops.map(stop => [Number(stop.latitude), Number(stop.longitude)])
@@ -64,8 +69,39 @@ export default function OutingCapture() {
     })
     map.fitBounds(bounds.pad(.2))
     window.setTimeout(() => map.invalidateSize(), 100)
-    return () => map.remove()
+    return () => { currentMarkerRef.current = null; routeMapInstanceRef.current = null; map.remove() }
   }, [outing?.id, JSON.stringify(outing?.planned_stops)])
+
+  useEffect(() => {
+    if (isNew || outing?.status !== 'active' || !navigator.geolocation) return
+    const watchId = navigator.geolocation.watchPosition(position => {
+      const next = [position.coords.latitude, position.coords.longitude]
+      setCurrentPosition(next)
+      if (routeMapInstanceRef.current && window.L) {
+        if (!currentMarkerRef.current) currentMarkerRef.current = window.L.circleMarker(next, { radius: 8, fillColor: '#2563eb', color: '#fff', weight: 3, fillOpacity: 1 }).addTo(routeMapInstanceRef.current).bindTooltip('You are here')
+        else currentMarkerRef.current.setLatLng(next)
+      }
+    }, () => {}, { enableHighAccuracy: true, maximumAge: 30000, timeout: 15000 })
+    return () => navigator.geolocation.clearWatch(watchId)
+  }, [id, isNew, outing?.status])
+
+  useEffect(() => {
+    if (!currentPosition || !routeMapInstanceRef.current || !window.L) return
+    if (!currentMarkerRef.current) currentMarkerRef.current = window.L.circleMarker(currentPosition, { radius: 8, fillColor: '#2563eb', color: '#fff', weight: 3, fillOpacity: 1 }).addTo(routeMapInstanceRef.current).bindTooltip('You are here')
+    else currentMarkerRef.current.setLatLng(currentPosition)
+  }, [currentPosition])
+
+  useEffect(() => {
+    if (isNew || outing?.status !== 'active' || !('wakeLock' in navigator)) return
+    let cancelled = false
+    const keepAwake = async () => {
+      try { if (!cancelled && document.visibilityState === 'visible') wakeLockRef.current = await navigator.wakeLock.request('screen') } catch {}
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') keepAwake() }
+    keepAwake()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); wakeLockRef.current?.release?.(); wakeLockRef.current = null }
+  }, [id, isNew, outing?.status])
 
   useEffect(() => {
     const query = observation.common_name.trim()
