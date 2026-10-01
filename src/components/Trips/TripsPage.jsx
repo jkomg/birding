@@ -377,7 +377,7 @@ export default function TripsPage() {
   }
 
   return (
-    <div>
+    <div className="trips-page">
       <div className="page-header">
         <div>
           <h1>Day Trips</h1>

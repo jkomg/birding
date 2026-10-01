@@ -472,6 +472,7 @@ tr:hover td { background: var(--bg); }
   gap: 1rem;
   margin-bottom: 1rem;
 }
+.trips-page { min-width: 0; max-width: 100%; overflow-x: clip; }
 
 .trip-current-card,
 .trip-drafts-card,
@@ -1048,10 +1049,13 @@ tr:hover td { background: var(--bg); }
   .trip-plan-card-actions {
     width: 100%;
     justify-content: stretch;
+    flex-wrap: wrap;
+    gap: .4rem;
   }
 
   .trip-plan-card-actions button {
-    flex: 1 1 0;
+    flex: 1 1 calc(50% - .2rem);
+    min-width: 0;
   }
 
   .map-layout {
