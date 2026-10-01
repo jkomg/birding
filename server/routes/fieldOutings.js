@@ -125,6 +125,31 @@ router.get('/suggestions', requireAuth, async (req, res) => {
   }
 })
 
+router.get('/stop-suggestions', requireAuth, async (req, res) => {
+  try {
+    const latitude = Number(req.query.lat)
+    const longitude = Number(req.query.lng)
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return res.status(400).json({ error: 'This stop does not have coordinates.' })
+    const [user, householdSpecies] = await Promise.all([
+      db.execute({ sql: 'SELECT ebird_api_key FROM users WHERE id=?', args: [req.user.id] }),
+      db.execute('SELECT DISTINCT species_code, common_name FROM sightings WHERE species_code IS NOT NULL OR common_name IS NOT NULL')
+    ])
+    const apiKey = user.rows[0]?.ebird_api_key
+    if (!apiKey) return res.json({ species: [], needs_ebird: true })
+    const seenAtHome = new Set(householdSpecies.rows.map(item => item.species_code || item.common_name?.toLowerCase()).filter(Boolean))
+    const observations = await ebirdGet(`/v2/data/obs/geo/recent?lat=${latitude}&lng=${longitude}&dist=10&back=14&maxResults=100`, apiKey)
+    const species = likelySpecies(observations).map(item => ({
+      ...item,
+      seen_by_us: seenAtHome.has(item.species_code || item.common_name?.toLowerCase()),
+      priority: seenAtHome.has(item.species_code || item.common_name?.toLowerCase()) ? 'familiar' : 'new'
+    })).sort((a, b) => Number(b.priority === 'new') - Number(a.priority === 'new') || b.sightings - a.sightings).slice(0, 12)
+    res.json({ species })
+  } catch (err) {
+    console.error('Stop suggestions error:', err)
+    res.status(502).json({ error: 'Could not load species for this stop' })
+  }
+})
+
 async function getOuting(id, userId) {
   const outing = await db.execute({
     sql: `SELECT o.*,
@@ -249,6 +274,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
       ['location_name', req.body.location_name],
       ['latitude', req.body.latitude],
       ['longitude', req.body.longitude],
+      ['planned_species_json', req.body.planned_species ? JSON.stringify(req.body.planned_species) : undefined],
       ['planned_stops_json', req.body.planned_stops ? JSON.stringify(req.body.planned_stops) : undefined],
       ['notes', req.body.notes],
       ['status', req.body.status],
