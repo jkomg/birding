@@ -33,7 +33,7 @@ router.post('/', requireAuth, async (req, res) => {
 
     if (outing_id !== null && outing_id !== '') {
       const outing = await db.execute({
-        sql: "SELECT id FROM field_outings WHERE id=? AND user_id=? AND status='active'",
+        sql: 'SELECT id FROM field_outings WHERE id=? AND user_id=?',
         args: [outing_id, req.user.id]
       })
       if (!outing.rows.length) return res.status(400).json({ error: 'Active outing not found' })
