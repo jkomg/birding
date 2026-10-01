@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { db } from '../db.js'
 import { requireAuth } from '../auth.js'
 import { ebirdGet } from '../ebird.js'
+import { deletePhoto } from '../storage.js'
 
 const router = Router()
 
@@ -208,6 +209,27 @@ router.post('/', requireAuth, async (req, res) => {
     res.status(201).json(await getOuting(result.lastInsertRowid, req.user.id))
   } catch (err) {
     res.status(400).json({ error: err.message })
+  }
+})
+
+router.delete('/:id', requireAuth, async (req, res) => {
+  try {
+    const outing = await db.execute({ sql: 'SELECT id FROM field_outings WHERE id=? AND user_id=?', args: [req.params.id, req.user.id] })
+    if (!outing.rows.length) return res.status(404).json({ error: 'Outing not found' })
+
+    const photos = await db.execute({
+      sql: `SELECT p.gcs_path FROM photos p JOIN sightings s ON s.id=p.sighting_id WHERE s.outing_id=? AND s.user_id=?`,
+      args: [req.params.id, req.user.id]
+    })
+    for (const photo of photos.rows) {
+      try { await deletePhoto(photo.gcs_path) } catch (err) { console.warn('Could not delete outing photo:', err.message) }
+    }
+    await db.execute({ sql: 'DELETE FROM photos WHERE sighting_id IN (SELECT id FROM sightings WHERE outing_id=? AND user_id=?)', args: [req.params.id, req.user.id] })
+    await db.execute({ sql: 'DELETE FROM sightings WHERE outing_id=? AND user_id=?', args: [req.params.id, req.user.id] })
+    await db.execute({ sql: 'DELETE FROM field_outings WHERE id=? AND user_id=?', args: [req.params.id, req.user.id] })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 })
 

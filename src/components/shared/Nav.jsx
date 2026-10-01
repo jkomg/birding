@@ -22,7 +22,7 @@ export default function Nav() {
         <NavLink to="/" end><span className="nav-icon">⌂</span><span>Today</span></NavLink>
         <NavLink to="/map"><span className="nav-icon">⌖</span><span>Map</span></NavLink>
         <NavLink to="/lifelist"><span className="nav-icon">✦</span><span>Life list</span></NavLink>
-        <NavLink to="/timeline"><span className="nav-icon">☷</span><span>Outings</span></NavLink>
+        <NavLink to="/outings"><span className="nav-icon">☷</span><span>Outings</span></NavLink>
         <NavLink to="/trips"><span className="nav-icon">↗</span><span>Plans</span></NavLink>
       </div>
       <div className="user-toggle">

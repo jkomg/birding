@@ -11,6 +11,7 @@ import TripsPage from './components/Trips/TripsPage.jsx'
 import SettingsPage from './components/Settings/SettingsPage.jsx'
 import SpeciesDetail from './components/Species/SpeciesDetail.jsx'
 import OutingCapture from './components/Outings/OutingCapture.jsx'
+import OutingsPage from './components/Outings/OutingsPage.jsx'
 
 export const AuthContext = createContext(null)
 export const UsersContext = createContext([])
@@ -92,6 +93,7 @@ export default function App() {
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/species/:code" element={<SpeciesDetail />} />
                     <Route path="/outing/:id" element={<OutingCapture />} />
+                    <Route path="/outings" element={<OutingsPage />} />
                   </Routes>
                 </main>
               </ProtectedRoute>
